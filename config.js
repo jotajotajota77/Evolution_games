@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.4',
+  version: 'v1.5',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -11,7 +11,8 @@ export const CONFIG = {
 
   // Time / loop
   targetFps: 60,
-  speedSteps: [1, 2, 5, 20],        // controls cycle through these
+  speedSteps: [0.5, 1, 5, 10, 20],  // selectable from the "world" popup
+  defaultSpeedIdx: 1,               // start at 1x
 
   // Food
   foodSpawnRatePerSec: 14,          // global uniform spawn (no zones yet)
@@ -94,4 +95,10 @@ export const CONFIG = {
   // Placement tool constraints.
   houseMinRadius: 30,
   houseMaxRadius: 220,
+
+  // UI fade behaviour (configurable via the "config" popup slider).
+  uiAutohideThreshold: 95,          // slider %; above this, auto-hide kicks in
+  uiAutohideDelayMs: 2000,          // after closing settings, peek → hide
+  uiPeekDelayMs: 3000,              // after click, peek → hide again
+  uiPeekAlpha: 0.05,                // alpha while peeking in auto-hide mode
 };

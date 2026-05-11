@@ -2,7 +2,7 @@
 <html lang="en" translate="no">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="google" content="notranslate" />
   <title>Evolution — Artificial Life</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,29 +11,78 @@
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <div id="app">
-    <main id="stage">
-      <div id="canvas-host"></div>
-      <div id="hud">
-        <div class="hud-row"><span class="hud-label">phase</span><span id="hud-phase">3</span></div>
-        <div class="hud-row"><span class="hud-label">pop</span><span id="hud-pop">0</span></div>
-        <div class="hud-row"><span class="hud-label">gen</span><span id="hud-gen">0</span></div>
-        <div class="hud-row"><span class="hud-label">food</span><span id="hud-food">0</span></div>
-        <div class="hud-row"><span class="hud-label">time</span><span id="hud-time">00:00</span></div>
-        <div class="hud-row"><span class="hud-label">fps</span><span id="hud-fps">0</span></div>
-      </div>
-      <div id="controls">
-        <button id="btn-pause" class="ctrl">pause</button>
-        <button id="btn-speed" class="ctrl">1x</button>
-        <button id="btn-reset" class="ctrl">reset</button>
-      </div>
+  <div id="stage">
+    <div id="canvas-host"></div>
 
-      <div id="toolbar" aria-label="World tools">
-        <button class="tool active" data-tool="select" title="Select / pan">◇</button>
-        <button class="tool" data-tool="house" title="Place house: click + drag">⌂</button>
-      </div>
-    </main>
+    <!-- Translucent HUD (top-left) -->
+    <div id="hud" class="overlay fade-target">
+      <div class="hud-row"><span class="hud-label">phase</span><span id="hud-phase">3</span></div>
+      <div class="hud-row"><span class="hud-label">pop</span><span id="hud-pop">0</span></div>
+      <div class="hud-row"><span class="hud-label">gen</span><span id="hud-gen">0</span></div>
+      <div class="hud-row"><span class="hud-label">food</span><span id="hud-food">0</span></div>
+      <div class="hud-row"><span class="hud-label">time</span><span id="hud-time">00:00</span></div>
+      <div class="hud-row"><span class="hud-label">fps</span><span id="hud-fps">0</span></div>
+    </div>
 
+    <!-- World-editing tools (top-right) -->
+    <div id="toolbar" class="overlay fade-target" aria-label="World tools">
+      <button class="tool active" data-tool="select" title="Select / pan">◇</button>
+      <button class="tool" data-tool="house" title="Place house: click + drag">⌂</button>
+    </div>
+
+    <!-- Bottom app bar -->
+    <div id="bottom-bar" class="overlay fade-target">
+      <button class="bbtn" data-action="pause" title="Pause / play">
+        <span class="bbtn-icon" id="bbtn-pause-icon">❚❚</span>
+        <span class="bbtn-label" id="bbtn-pause-label">pause</span>
+      </button>
+      <button class="bbtn" data-action="charts" title="Charts">
+        <span class="bbtn-icon">▦</span>
+        <span class="bbtn-label">charts</span>
+      </button>
+      <button class="bbtn" data-action="settings" title="Settings">
+        <span class="bbtn-icon">⚙</span>
+        <span class="bbtn-label">config</span>
+      </button>
+      <button class="bbtn" data-action="world" title="World">
+        <span class="bbtn-icon">◎</span>
+        <span class="bbtn-label">world</span>
+      </button>
+    </div>
+
+    <!-- Popups anchored above the bottom bar -->
+    <div id="popup-charts" class="popup hidden" data-anchor="charts">
+      <div class="popup-title">open chart</div>
+      <button class="popup-item" data-chart="population">population over time</button>
+      <button class="popup-item" data-chart="energy">avg energy over time</button>
+      <button class="popup-item" data-chart="deaths">deaths by cause</button>
+      <button class="popup-item" data-chart="zones">pop by zone</button>
+      <button class="popup-item" data-chart="stats">stats summary</button>
+    </div>
+
+    <div id="popup-settings" class="popup hidden" data-anchor="settings">
+      <div class="popup-title">ui transparency</div>
+      <div class="slider-row">
+        <input type="range" id="ui-transparency" min="0" max="100" step="1" value="0" />
+        <span class="slider-value" id="ui-transparency-value">0%</span>
+      </div>
+      <div class="popup-hint">above 95% the ui auto-hides; tap the screen to peek</div>
+    </div>
+
+    <div id="popup-world" class="popup hidden" data-anchor="world">
+      <div class="popup-title">animation speed</div>
+      <div class="speed-grid">
+        <button class="speed-btn" data-speed="0.5">0.5x</button>
+        <button class="speed-btn" data-speed="1">1x</button>
+        <button class="speed-btn" data-speed="5">5x</button>
+        <button class="speed-btn" data-speed="10">10x</button>
+        <button class="speed-btn" data-speed="20">20x</button>
+      </div>
+      <div class="popup-title">actions</div>
+      <button class="popup-item" data-action="reset">reset population</button>
+    </div>
+
+    <!-- House creation modal (unchanged from phase 3) -->
     <div id="modal-backdrop" class="hidden">
       <div id="modal">
         <h2>New Lineage</h2>
@@ -85,49 +134,8 @@
       </div>
     </div>
 
-    <aside id="panel">
-      <header class="panel-header">
-        <h1>EVOLUTION</h1>
-        <div class="subtitle">artificial life · phase 3</div>
-      </header>
-
-      <section class="card">
-        <div class="card-title">population by lineage</div>
-        <div class="chart-host"><canvas id="chart-pop"></canvas></div>
-      </section>
-
-      <section class="card">
-        <div class="card-title">avg energy by lineage</div>
-        <div class="chart-host"><canvas id="chart-energy"></canvas></div>
-      </section>
-
-      <section class="card row-card">
-        <div class="metric">
-          <div class="metric-label">avg generation</div>
-          <div class="metric-value" id="metric-gen">0.0</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">total alive</div>
-          <div class="metric-value" id="metric-alive">0</div>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="card-title">deaths by cause</div>
-        <div class="chart-host short"><canvas id="chart-deaths"></canvas></div>
-      </section>
-
-      <section class="card">
-        <div class="card-title">pop by zone</div>
-        <div class="chart-host short"><canvas id="chart-zone"></canvas></div>
-      </section>
-
-      <footer class="panel-footer">
-        <span class="dot"></span>
-        <span>phase 3 · lineages + houses</span>
-        <span class="version" id="app-version">v0.0</span>
-      </footer>
-    </aside>
+    <!-- Discreet version marker -->
+    <div id="version-tag">v0.0</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
