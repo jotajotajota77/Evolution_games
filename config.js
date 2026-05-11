@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.3',
+  version: 'v1.4',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -65,4 +65,33 @@ export const CONFIG = {
   mutationSigma: 0.18,              // gaussian std-dev for mutation
   maxPopulation: 400,               // hard cap; reproduction blocked at cap
   childOffsetMax: 6,                // px from parent on birth
+
+  // Lineage palette — used as default colors when the user creates new lineages.
+  // Each entry suggests a name and an RGB triple. Users may pick any custom color.
+  lineagePalette: [
+    { name: 'rose',   rgb: [255, 127, 200] },
+    { name: 'amber',  rgb: [255, 200, 100] },
+    { name: 'mint',   rgb: [127, 230, 160] },
+    { name: 'violet', rgb: [200, 140, 255] },
+    { name: 'coral',  rgb: [255, 150, 110] },
+    { name: 'cyan',   rgb: [120, 220, 230] },
+    { name: 'lemon',  rgb: [230, 230, 130] },
+  ],
+
+  // House defaults — pre-filled into the placement modal.
+  // foodDensity is given per 100x100-px "tile" of area so the number stays
+  // human-readable. The world converts it to a per-second rate using house area.
+  houseDefaults: {
+    founders: 20,
+    foodDensity: 3.0,
+    foodEnergy: 32,
+    decayMultiplier: 0.7,
+    predatorsAllowed: true,
+    transparentFromInside: false,
+    transparentFromOutside: false,
+  },
+
+  // Placement tool constraints.
+  houseMinRadius: 30,
+  houseMaxRadius: 220,
 };

@@ -50,14 +50,15 @@ export function drawFood(world) {
   ctx.shadowBlur = 0;
 }
 
-export function drawOrganisms(world, lineageById) {
+export function drawOrganisms(world) {
   if (!p) return;
   const ctx = p.drawingContext;
   ctx.shadowBlur = CONFIG.glowOrganism;
   p.noStroke();
   for (const o of world.organisms) {
-    const lin = lineageById.get(o.lineageId) || { color: [200, 200, 220] };
-    const [r, g, b] = lin.color;
+    const lin = world.lineages.get(o.lineageId);
+    const baseRgb = lin ? lin.color : [200, 200, 220];
+    const [r, g, b] = baseRgb;
     // Energy modulates alpha so weak organisms visibly fade.
     const alpha = 140 + Math.min(115, (o.energy / 100) * 115);
     ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.9)`;
@@ -65,6 +66,46 @@ export function drawOrganisms(world, lineageById) {
     p.circle(o.x, o.y, CONFIG.organismRadius * 2);
   }
   ctx.shadowBlur = 0;
+}
+
+// Houses: translucent fill (zone tint) + soft inner border + faint outer ring
+// representing the auto barrier. Drawn before organisms so they overlay it.
+export function drawHouses(world) {
+  if (!p || !world.houses.length) return;
+  for (const h of world.houses) {
+    const lin = world.lineages.get(h.lineageId);
+    const [r, g, b] = lin ? lin.color : [200, 200, 220];
+
+    p.noStroke();
+    p.fill(r, g, b, 26);
+    p.circle(h.x, h.y, h.radius * 2);
+
+    p.noFill();
+    p.stroke(r, g, b, 110);
+    p.strokeWeight(1.2);
+    p.circle(h.x, h.y, h.radius * 2);
+
+    // Outer barrier ring — visual only in phase 3 (enforced in phase 6).
+    p.stroke(r, g, b, 55);
+    p.strokeWeight(0.7);
+    p.circle(h.x, h.y, (h.radius + 8) * 2);
+  }
+  p.noStroke();
+}
+
+// Preview circle while the user drags out a new house.
+export function drawHousePreview(drag) {
+  if (!p || !drag) return;
+  const dx = drag.currentX - drag.startX;
+  const dy = drag.currentY - drag.startY;
+  const r = Math.hypot(dx, dy);
+  p.noFill();
+  p.stroke(180, 220, 255, 160);
+  p.strokeWeight(1);
+  p.circle(drag.startX, drag.startY, Math.max(1, r * 2));
+  p.fill(180, 220, 255, 200);
+  p.noStroke();
+  p.circle(drag.startX, drag.startY, 4);
 }
 
 export function drawVignette() {

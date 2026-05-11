@@ -58,17 +58,23 @@ export class Organism {
     if (this.y < 0) { this.y = 0; this.heading = -this.heading; }
     else if (this.y > world.height) { this.y = world.height; this.heading = -this.heading; }
 
-    // 5. Eat anything within reach.
+    // 5. Eat anything within reach. Each pellet carries the energy value of
+    //    the zone it spawned in, so house-grown food can be more nutritious.
     const food = world.nearestFood(this.x, this.y, CONFIG.organismEatRadius);
     if (food) {
       food.eaten = true;
-      this.energy = Math.min(CONFIG.organismMaxEnergy, this.energy + CONFIG.foodEnergy);
+      const gain = food.energy != null ? food.energy : CONFIG.foodEnergy;
+      this.energy = Math.min(CONFIG.organismMaxEnergy, this.energy + gain);
     }
 
-    // 6. Energy decay (base + speed-scaled).
+    // 6. Energy decay (base + speed-scaled), modulated by the zone the organism
+    //    is currently in. In phase 3 the only zones are house zones, applied
+    //    to any organism standing inside (own or foreign).
     const speedNorm = this.currentSpeed / CONFIG.organismMaxSpeed;
+    const zoneMult = world.zoneDecayMultiplierAt(this.x, this.y);
     const decay = CONFIG.organismEnergyDecayPerSec
-      * (1 + (CONFIG.organismEnergyDecayMoveMult - 1) * speedNorm);
+      * (1 + (CONFIG.organismEnergyDecayMoveMult - 1) * speedNorm)
+      * zoneMult;
     this.energy -= decay * dtSec;
 
     // 7. Death.

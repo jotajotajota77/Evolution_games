@@ -15,7 +15,7 @@
     <main id="stage">
       <div id="canvas-host"></div>
       <div id="hud">
-        <div class="hud-row"><span class="hud-label">phase</span><span id="hud-phase">2</span></div>
+        <div class="hud-row"><span class="hud-label">phase</span><span id="hud-phase">3</span></div>
         <div class="hud-row"><span class="hud-label">pop</span><span id="hud-pop">0</span></div>
         <div class="hud-row"><span class="hud-label">gen</span><span id="hud-gen">0</span></div>
         <div class="hud-row"><span class="hud-label">food</span><span id="hud-food">0</span></div>
@@ -27,12 +27,68 @@
         <button id="btn-speed" class="ctrl">1x</button>
         <button id="btn-reset" class="ctrl">reset</button>
       </div>
+
+      <div id="toolbar" aria-label="World tools">
+        <button class="tool active" data-tool="select" title="Select / pan">◇</button>
+        <button class="tool" data-tool="house" title="Place house: click + drag">⌂</button>
+      </div>
     </main>
+
+    <div id="modal-backdrop" class="hidden">
+      <div id="modal">
+        <h2>New Lineage</h2>
+        <p class="modal-hint">Founders spawn inside the zone with random brains.</p>
+        <form id="house-form" autocomplete="off">
+          <div class="form-row">
+            <label>name</label>
+            <input type="text" name="name" required maxlength="20" />
+          </div>
+          <div class="form-row">
+            <label>color</label>
+            <input type="color" name="color" />
+          </div>
+          <div class="form-row">
+            <label>founders</label>
+            <input type="number" name="founders" min="1" max="100" />
+          </div>
+
+          <div class="form-section">zone</div>
+          <div class="form-row">
+            <label>food density</label>
+            <input type="number" name="foodDensity" step="0.1" min="0" />
+          </div>
+          <div class="form-row">
+            <label>food energy</label>
+            <input type="number" name="foodEnergy" step="1" min="1" />
+          </div>
+          <div class="form-row">
+            <label>decay mult</label>
+            <input type="number" name="decayMult" step="0.1" min="0" />
+          </div>
+          <div class="form-row">
+            <label class="checkbox"><input type="checkbox" name="predatorsAllowed" /> allow predators</label>
+          </div>
+
+          <div class="form-section">barrier visibility</div>
+          <div class="form-row">
+            <label class="checkbox"><input type="checkbox" name="transFromInside" /> transparent from inside</label>
+          </div>
+          <div class="form-row">
+            <label class="checkbox"><input type="checkbox" name="transFromOutside" /> transparent from outside</label>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" id="btn-modal-cancel" class="btn-secondary">cancel</button>
+            <button type="submit" class="btn-primary">create</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <aside id="panel">
       <header class="panel-header">
         <h1>EVOLUTION</h1>
-        <div class="subtitle">artificial life · phase 2</div>
+        <div class="subtitle">artificial life · phase 3</div>
       </header>
 
       <section class="card">
@@ -68,7 +124,7 @@
 
       <footer class="panel-footer">
         <span class="dot"></span>
-        <span>phase 2 · neural + reproduction</span>
+        <span>phase 3 · lineages + houses</span>
         <span class="version" id="app-version">v0.0</span>
       </footer>
     </aside>

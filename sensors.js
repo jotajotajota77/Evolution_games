@@ -118,5 +118,28 @@ export function computeSensors(org, world, out) {
   out[PROP_BASE + 1] = org.currentSpeed / CONFIG.organismMaxSpeed;
   out[PROP_BASE + 2] = Math.min(1, org.ageSec / CONFIG.organismMaxAgeSec);
 
-  // Time / house / zone slots remain zero until later phases enable them.
+  // Time slots (27-28) stay zero — phase 4.
+
+  // House sensors (29-31): innate spatial reference to the lineage's home.
+  // Computed every frame from geometry — independent of vision.
+  const lineage = world.lineages.get(org.lineageId);
+  const house = lineage ? lineage.house : null;
+  if (house) {
+    const dx = house.x - org.x;
+    const dy = house.y - org.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const diag = Math.sqrt(world.width * world.width + world.height * world.height);
+    out[HOUSE_BASE]     = Math.min(1, dist / diag);
+    // Angle to house relative to current heading. sin/cos avoid the wrap
+    // discontinuity that a raw angle scalar would introduce.
+    const rel = Math.atan2(dy, dx) - org.heading;
+    out[HOUSE_BASE + 1] = Math.sin(rel);
+    out[HOUSE_BASE + 2] = Math.cos(rel);
+
+    // Zone status (32): inside own house's zone.
+    if (dx * dx + dy * dy <= house.radius * house.radius) {
+      out[ZONE_BASE] = 1;
+    }
+  }
+  // ZONE_BASE+1 (foreign non-house zone) stays zero — phase 5.
 }
