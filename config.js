@@ -1,5 +1,8 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
+  // Bump this on every commit. Shown discreetly in the panel footer.
+  version: 'v1.2',
+
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
   worldBgDay:   [12, 16, 28],

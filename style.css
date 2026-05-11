@@ -221,6 +221,14 @@ html, body {
   animation: pulse 2s ease-in-out infinite;
 }
 
+.version {
+  margin-left: auto;
+  color: var(--text-mute);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  opacity: 0.75;
+}
+
 @keyframes pulse {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }

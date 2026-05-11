@@ -303,6 +303,10 @@ window.addEventListener('DOMContentLoaded', () => {
   setupControls();
   setupCharts();
 
+  // Discreet version tag in the panel footer.
+  const v = document.getElementById('app-version');
+  if (v) v.textContent = CONFIG.version;
+
   // HUD on rAF for smoothness; charts on a slower interval to avoid layout thrash.
   function hudLoop() { updateHud(); requestAnimationFrame(hudLoop); }
   hudLoop();
