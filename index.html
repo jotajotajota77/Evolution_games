@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Evolution — Artificial Life</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app">
+    <main id="stage">
+      <div id="canvas-host"></div>
+      <div id="hud">
+        <div class="hud-row"><span class="hud-label">phase</span><span id="hud-phase">1</span></div>
+        <div class="hud-row"><span class="hud-label">pop</span><span id="hud-pop">0</span></div>
+        <div class="hud-row"><span class="hud-label">food</span><span id="hud-food">0</span></div>
+        <div class="hud-row"><span class="hud-label">time</span><span id="hud-time">00:00</span></div>
+        <div class="hud-row"><span class="hud-label">fps</span><span id="hud-fps">0</span></div>
+      </div>
+      <div id="controls">
+        <button id="btn-pause" class="ctrl">pause</button>
+        <button id="btn-speed" class="ctrl">1x</button>
+        <button id="btn-reset" class="ctrl">reset</button>
+      </div>
+    </main>
+
+    <aside id="panel">
+      <header class="panel-header">
+        <h1>EVOLUTION</h1>
+        <div class="subtitle">artificial life · phase 1</div>
+      </header>
+
+      <section class="card">
+        <div class="card-title">population by lineage</div>
+        <div class="chart-host"><canvas id="chart-pop"></canvas></div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">avg energy by lineage</div>
+        <div class="chart-host"><canvas id="chart-energy"></canvas></div>
+      </section>
+
+      <section class="card row-card">
+        <div class="metric">
+          <div class="metric-label">avg generation</div>
+          <div class="metric-value" id="metric-gen">0.0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">total alive</div>
+          <div class="metric-value" id="metric-alive">0</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">deaths by cause</div>
+        <div class="chart-host short"><canvas id="chart-deaths"></canvas></div>
+      </section>
+
+      <section class="card">
+        <div class="card-title">pop by zone</div>
+        <div class="chart-host short"><canvas id="chart-zone"></canvas></div>
+      </section>
+
+      <footer class="panel-footer">
+        <span class="dot"></span>
+        <span>phase 1 · random walk + food</span>
+      </footer>
+    </aside>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

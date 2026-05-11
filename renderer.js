@@ -1,0 +1,79 @@
+import { CONFIG } from './config.js';
+
+// p5 instance and a cached vignette gradient. p5 is set externally by main.js.
+let p = null;
+let vignetteGfx = null;
+
+export function attachP5(instance) {
+  p = instance;
+}
+
+export function rebuildVignette(w, h) {
+  if (!p) return;
+  // Build the vignette into an offscreen graphic so we don't pay gradient cost per frame.
+  vignetteGfx = p.createGraphics(w, h);
+  const ctx = vignetteGfx.drawingContext;
+  const cx = w / 2, cy = h / 2;
+  const r = Math.max(w, h) * 0.75;
+  const grad = ctx.createRadialGradient(cx, cy, r * 0.35, cx, cy, r);
+  grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  grad.addColorStop(1, `rgba(0, 0, 0, ${CONFIG.vignetteStrength})`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+}
+
+// Trail layer: instead of clearing each frame, fade with a translucent rectangle.
+// This bakes motion blur/trails into the canvas itself.
+export function drawTrailFade() {
+  if (!p) return;
+  p.noStroke();
+  p.drawingContext.shadowBlur = 0;
+  p.fill(CONFIG.trailFade);
+  p.rect(0, 0, p.width, p.height);
+}
+
+export function drawFood(world) {
+  if (!p) return;
+  const ctx = p.drawingContext;
+  const [r, g, b] = CONFIG.foodColor;
+  const t = world.tickSec;
+  ctx.shadowBlur = CONFIG.glowFood;
+  ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.85)`;
+  p.noStroke();
+  for (const f of world.food) {
+    if (f.eaten) continue;
+    // Soft pulse — phase-offset per pellet so the field shimmers rather than blinks.
+    const pulse = 0.7 + 0.3 * Math.sin(t * 2 + f.phase);
+    p.fill(r, g, b, 200 * pulse);
+    p.circle(f.x, f.y, CONFIG.foodRadius * 2);
+  }
+  ctx.shadowBlur = 0;
+}
+
+export function drawOrganisms(world, lineageById) {
+  if (!p) return;
+  const ctx = p.drawingContext;
+  ctx.shadowBlur = CONFIG.glowOrganism;
+  p.noStroke();
+  for (const o of world.organisms) {
+    const lin = lineageById.get(o.lineageId) || { color: [200, 200, 220] };
+    const [r, g, b] = lin.color;
+    // Energy modulates alpha so weak organisms visibly fade.
+    const alpha = 140 + Math.min(115, (o.energy / 100) * 115);
+    ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.9)`;
+    p.fill(r, g, b, alpha);
+    p.circle(o.x, o.y, CONFIG.organismRadius * 2);
+  }
+  ctx.shadowBlur = 0;
+}
+
+export function drawVignette() {
+  if (!p || !vignetteGfx) return;
+  p.image(vignetteGfx, 0, 0);
+}
+
+// Call once on first frame to lay down the deep background under the trail layer.
+export function paintBackground(rgb = CONFIG.worldBgDay) {
+  if (!p) return;
+  p.background(rgb[0], rgb[1], rgb[2]);
+}
