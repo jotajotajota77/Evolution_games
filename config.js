@@ -45,4 +45,21 @@ export const CONFIG = {
   // Stats
   statsIntervalMs: 1000,
   statsHistoryPoints: 60,           // 60s of history
+
+  // Neural network — fixed across all phases so the same architecture survives
+  // when later phases activate the currently-zeroed sensors.
+  nnArchitecture: [34, 20, 14, 3],
+
+  // Sensors / vision
+  visionRays: 8,
+  visionFanRad: (120 * Math.PI) / 180, // ~2.094 rad fan in front of organism
+  visionRange: 110,                    // px
+
+  // Reproduction (asexual, via NN intent + energy threshold)
+  reproductionEnergyThresh: 0.8,    // fraction of organismMaxEnergy
+  reproductionIntentThresh: 0.6,    // sigmoid output threshold
+  mutationRate: 0.06,               // probability per weight
+  mutationSigma: 0.18,              // gaussian std-dev for mutation
+  maxPopulation: 400,               // hard cap; reproduction blocked at cap
+  childOffsetMax: 6,                // px from parent on birth
 };

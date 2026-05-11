@@ -85,6 +85,8 @@ function updateHud() {
   document.getElementById('hud-pop').textContent = w.organisms.length;
   document.getElementById('hud-food').textContent = w.food.length;
   document.getElementById('hud-fps').textContent = state.fps;
+  // Live max-generation tracker — quickest signal that evolution is progressing.
+  document.getElementById('hud-gen').textContent = w.maxGenerationSeen || 0;
   // Phase 1 has no day/night — show elapsed sim time.
   const total = Math.floor(w.tickSec);
   const mm = String(Math.floor(total / 60)).padStart(2, '0');

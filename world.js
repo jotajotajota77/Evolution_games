@@ -15,6 +15,8 @@ export class World {
     this.tickSec = 0;                 // simulated seconds (scaled by speed)
     this.foodSpawnAccumulator = 0;
     this.deathsByCause = { starvation: 0, age: 0 };
+    this.totalBirths = 0;             // cumulative births since last reset
+    this.maxGenerationSeen = 0;
   }
 
   resize(w, h) {
@@ -47,6 +49,8 @@ export class World {
     this.tickSec = 0;
     this.foodSpawnAccumulator = 0;
     this.deathsByCause = { starvation: 0, age: 0 };
+    this.totalBirths = 0;
+    this.maxGenerationSeen = 0;
   }
 
   // dtSec is already speed-scaled by the caller.
@@ -62,9 +66,24 @@ export class World {
     // Cap accumulator if we hit the food ceiling — prevents huge bursts on resume.
     if (this.food.length >= CONFIG.foodMaxCount) this.foodSpawnAccumulator = 0;
 
-    // Tick organisms.
-    for (const o of this.organisms) {
+    // Tick organisms and collect births. Spawning into a side array keeps the
+    // for-loop bounds stable and lets us enforce the population cap globally.
+    const newBorns = [];
+    const cap = CONFIG.maxPopulation;
+    for (let i = 0; i < this.organisms.length; i++) {
+      const o = this.organisms[i];
       o.update(dtSec, this);
+      if (o.wantsToReproduce && this.organisms.length + newBorns.length < cap) {
+        const child = o.spawnChild();
+        newBorns.push(child);
+        if (child.generation > this.maxGenerationSeen) {
+          this.maxGenerationSeen = child.generation;
+        }
+      }
+    }
+    if (newBorns.length) {
+      this.organisms.push(...newBorns);
+      this.totalBirths += newBorns.length;
     }
 
     // Cull dead organisms in a single sweep.
