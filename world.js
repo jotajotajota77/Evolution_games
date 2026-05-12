@@ -6,6 +6,7 @@ import { segmentsCross } from './barrier.js';
 import { Predator } from './predator.js';
 import { SpatialGrid } from './spatial.js';
 import { Phylo } from './phylo.js';
+import { randomBinomial } from './names.js';
 
 // A pellet of food. Each one stores the energy it grants — set at spawn-time
 // by the region that produced it (open world, house zone, or non-house zone).
@@ -71,17 +72,14 @@ export class World {
     // Lineages keyed by id. The default lineage seeds the page when it loads
     // so visitors see motion immediately, even before placing any houses.
     this.lineages = new Map();
-    const def = new Lineage(
-      CONFIG.defaultLineage.id,
-      CONFIG.defaultLineage.name,
-      CONFIG.defaultLineage.color,
-    );
-    this.lineages.set(def.id, def);
+    this._ensureDefaultLineage();
 
     // Phylogeny — every lineage gets a root species. Speciation events
     // (drift-variance based) spawn children inside Phylo.tick().
     this.phylo = new Phylo();
-    this.phylo.initLineageRoot(def, 0);
+    for (const lin of this.lineages.values()) {
+      this.phylo.initLineageRoot(lin, 0);
+    }
 
     this.houses = [];
     this.zones = [];                  // non-house zones (phase 5)
@@ -166,17 +164,25 @@ export class World {
 
   reset() {
     this._clearPopulationsAndCounters();
+    // clearAll may have wiped the default lineage entirely; re-create it
+    // (with a fresh random name) so the seeded population renders correctly.
+    this._ensureDefaultLineage();
     this._rebuildPhylo();
     this.seed();
     for (const h of this.houses) this.seedFoundersForHouse(h, CONFIG.houseDefaults.founders);
   }
 
-  // Like reset, but doesn't re-seed the default lineage or house founders —
-  // leaves the configured world empty so the user can place houses and watch
-  // only those populations from scratch.
+  // Full wipe: organisms, predators, food, AND every piece of configured
+  // world state (lineages, houses, zones, barriers, phylogeny). The world
+  // is left truly empty so the user can place a house and watch only that
+  // population without any leftover lineage cluttering charts / access lists.
   clearAll() {
     this._clearPopulationsAndCounters();
-    this._rebuildPhylo();
+    this.lineages.clear();
+    this.houses.length = 0;
+    this.zones.length = 0;
+    this.barriers.length = 0;
+    this.phylo = new Phylo();
   }
 
   _clearPopulationsAndCounters() {
@@ -201,6 +207,18 @@ export class World {
     for (const lin of this.lineages.values()) {
       this.phylo.initLineageRoot(lin, this.tickSec);
     }
+  }
+
+  // Ensures the default lineage exists. The name is rolled fresh from the
+  // binomial generator so it never literally reads "default" in the UI.
+  _ensureDefaultLineage() {
+    if (this.lineages.has(CONFIG.defaultLineage.id)) return;
+    const def = new Lineage(
+      CONFIG.defaultLineage.id,
+      randomBinomial(),
+      CONFIG.defaultLineage.color,
+    );
+    this.lineages.set(def.id, def);
   }
 
   addLineage(lineage) {
