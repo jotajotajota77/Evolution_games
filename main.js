@@ -417,7 +417,89 @@ const chartFactories = {
       return { chart: null, update };
     },
   }),
+  phylo: () => ({
+    title: 'phylogeny',
+    width: 360,
+    height: 380,
+    factory: (host) => {
+      host.innerHTML = '<div class="fw-phylo"></div>';
+      const listEl = host.querySelector('.fw-phylo');
+      const update = () => renderPhyloTree(listEl);
+      update();
+      return { chart: null, update };
+    },
+  }),
 };
+
+// Phylogeny tree — DOM list with indentation per depth. Filters out species
+// that never reached the configured minimum peak population, so spurious
+// split events don't pollute the visible tree.
+function renderPhyloTree(host) {
+  const w = state.world;
+  if (!w || !w.phylo) return;
+
+  const visible = w.phylo.species.filter((s) =>
+    s.peakPop >= CONFIG.phyloMinDisplayPeakPop || s.parentId == null);
+  if (visible.length === 0) {
+    host.innerHTML = '<div class="phylo-empty">no species yet — place a house to seed one.</div>';
+    return;
+  }
+
+  // Build child map.
+  const childrenOf = new Map();
+  const visibleSet = new Set(visible.map((s) => s.id));
+  const roots = [];
+  for (const s of visible) {
+    if (s.parentId == null || !visibleSet.has(s.parentId)) {
+      roots.push(s);
+    } else {
+      if (!childrenOf.has(s.parentId)) childrenOf.set(s.parentId, []);
+      childrenOf.get(s.parentId).push(s);
+    }
+  }
+  roots.sort((a, b) => a.lineageId - b.lineageId || a.bornTick - b.bornTick);
+
+  host.innerHTML = '';
+
+  const tick = w.tickSec;
+  function append(species, depth) {
+    const lin = w.lineages.get(species.lineageId);
+    const linName = lin ? lin.name : '?';
+    const row = document.createElement('div');
+    row.className = 'phylo-row';
+    if (species.diedTick != null) row.classList.add('extinct');
+    row.style.paddingLeft = `${depth * 14 + 8}px`;
+
+    const swatch = document.createElement('span');
+    swatch.className = 'phylo-swatch';
+    swatch.style.background = `rgb(${species.color[0]}, ${species.color[1]}, ${species.color[2]})`;
+
+    const label = document.createElement('span');
+    label.className = 'phylo-name';
+    const tag = species.parentId == null ? '·root' : '';
+    label.textContent = `${linName}${tag}`;
+
+    const stat = document.createElement('span');
+    stat.className = 'phylo-pop';
+    if (species.diedTick != null) {
+      const lifespan = Math.max(0, Math.floor(species.diedTick - species.bornTick));
+      stat.textContent = `× ${lifespan}s · peak ${species.peakPop}`;
+    } else {
+      const age = Math.max(0, Math.floor(tick - species.bornTick));
+      stat.textContent = `${species.currentPop} · ${age}s`;
+    }
+
+    row.appendChild(swatch);
+    row.appendChild(label);
+    row.appendChild(stat);
+    host.appendChild(row);
+
+    const kids = childrenOf.get(species.id) || [];
+    kids.sort((a, b) => a.bornTick - b.bornTick);
+    for (const c of kids) append(c, depth + 1);
+  }
+  for (const r of roots) append(r, 0);
+}
 
 // Finds the longest-lived currently-alive organism per lineage and renders a
 // row with a compact neural-network diagram for each. Rebuilds the DOM each
@@ -684,6 +766,16 @@ function setupBottomBar() {
 
   popups.world.querySelector('[data-action="reset"]').addEventListener('click', () => {
     state.world.reset();
+    history.labels.length = 0;
+    for (const arr of history.popByLin.values()) arr.length = 0;
+    for (const arr of history.enByLin.values()) arr.length = 0;
+    state.world.deathsByCause.starvation = 0;
+    state.world.deathsByCause.age = 0;
+    state.world.deathsByCause.predation = 0;
+    closeAllPopups();
+  });
+  popups.world.querySelector('[data-action="clear-all"]').addEventListener('click', () => {
+    state.world.clearAll();
     history.labels.length = 0;
     for (const arr of history.popByLin.values()) arr.length = 0;
     for (const arr of history.enByLin.values()) arr.length = 0;

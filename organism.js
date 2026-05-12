@@ -25,6 +25,10 @@ export class Organism {
     // Inheritable per-individual colour offset. Founders start at zero; each
     // birth accumulates a small gaussian step (see spawnChild).
     this.colorDrift = colorDrift ? [colorDrift[0], colorDrift[1], colorDrift[2]] : [0, 0, 0];
+
+    // Phylogeny node id. Set by world helpers (seedFoundersForHouse / seed)
+    // for founders; inherited by descendants in spawnChild.
+    this.speciesId = null;
   }
 
   update(dtSec, world) {
@@ -135,6 +139,7 @@ export class Organism {
     const child = new Organism(cx, cy, this.lineageId, childBrain, drift);
     child.energy = this.energy;
     child.generation = this.generation + 1;
+    child.speciesId = this.speciesId;
 
     this.wantsToReproduce = false;
     return child;

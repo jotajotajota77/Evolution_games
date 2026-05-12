@@ -5,6 +5,7 @@ import { sampleInCircle } from './house.js';
 import { segmentsCross } from './barrier.js';
 import { Predator } from './predator.js';
 import { SpatialGrid } from './spatial.js';
+import { Phylo } from './phylo.js';
 
 // A pellet of food. Each one stores the energy it grants — set at spawn-time
 // by the region that produced it (open world, house zone, or non-house zone).
@@ -77,6 +78,11 @@ export class World {
     );
     this.lineages.set(def.id, def);
 
+    // Phylogeny — every lineage gets a root species. Speciation events
+    // (drift-variance based) spawn children inside Phylo.tick().
+    this.phylo = new Phylo();
+    this.phylo.initLineageRoot(def, 0);
+
     this.houses = [];
     this.zones = [];                  // non-house zones (phase 5)
     this.barriers = [];               // user-drawn line barriers (phase 6)
@@ -138,12 +144,15 @@ export class World {
 
   seed(count = CONFIG.initialPopulation) {
     // Default-lineage starter pop. New user lineages spawn via addHouse/seedFounders.
+    const rootSpeciesId = this.phylo.lineageRoots.get(CONFIG.defaultLineage.id);
     for (let i = 0; i < count; i++) {
-      this.organisms.push(new Organism(
+      const o = new Organism(
         Math.random() * this.width,
         Math.random() * this.height,
         CONFIG.defaultLineage.id,
-      ));
+      );
+      o.speciesId = rootSpeciesId ?? null;
+      this.organisms.push(o);
     }
     const initialFood = Math.min(CONFIG.foodMaxCount * 0.4, 200);
     for (let i = 0; i < initialFood; i++) {
@@ -156,12 +165,24 @@ export class World {
   }
 
   reset() {
+    this._clearPopulationsAndCounters();
+    this._rebuildPhylo();
+    this.seed();
+    for (const h of this.houses) this.seedFoundersForHouse(h, CONFIG.houseDefaults.founders);
+  }
+
+  // Like reset, but doesn't re-seed the default lineage or house founders —
+  // leaves the configured world empty so the user can place houses and watch
+  // only those populations from scratch.
+  clearAll() {
+    this._clearPopulationsAndCounters();
+    this._rebuildPhylo();
+  }
+
+  _clearPopulationsAndCounters() {
     this.organisms.length = 0;
     this.food.length = 0;
     this.predators.length = 0;
-    // Houses + lineages are part of the configured world, so they survive reset.
-    // Only living state is cleared. Reset accumulators on houses so they don't
-    // burst-spawn after pause-resume.
     for (const h of this.houses) h.foodSpawnAccumulator = 0;
     for (const z of this.zones) z.foodSpawnAccumulator = 0;
     this.tickSec = CONFIG.startAtNoon ? CONFIG.dayLengthSec / 2 : 0;
@@ -170,14 +191,21 @@ export class World {
     this.deathsByCause = { starvation: 0, age: 0, predation: 0 };
     this.totalBirths = 0;
     this.maxGenerationSeen = 0;
-    // Re-seed default lineage so the world isn't empty after reset.
-    this.seed();
-    // Re-seed each user lineage from their house.
-    for (const h of this.houses) this.seedFoundersForHouse(h, CONFIG.houseDefaults.founders);
+  }
+
+  _rebuildPhylo() {
+    // Discard the entire species tree and start fresh — one root per
+    // existing lineage. Any leftover speciesId on legacy organisms (which
+    // are about to be wiped in reset anyway) is irrelevant.
+    this.phylo = new Phylo();
+    for (const lin of this.lineages.values()) {
+      this.phylo.initLineageRoot(lin, this.tickSec);
+    }
   }
 
   addLineage(lineage) {
     this.lineages.set(lineage.id, lineage);
+    this.phylo.initLineageRoot(lineage, this.tickSec);
   }
 
   addHouse(house) {
@@ -330,9 +358,12 @@ export class World {
 
   // Spawns N founders for a house, with random brains, inside its zone.
   seedFoundersForHouse(house, count) {
+    const rootSpeciesId = this.phylo.lineageRoots.get(house.lineageId);
     for (let i = 0; i < count; i++) {
       const pt = sampleInCircle(house.x, house.y, house.radius * 0.92);
-      this.organisms.push(new Organism(pt.x, pt.y, house.lineageId));
+      const o = new Organism(pt.x, pt.y, house.lineageId);
+      o.speciesId = rootSpeciesId ?? null;
+      this.organisms.push(o);
     }
   }
 
@@ -454,6 +485,9 @@ export class World {
       for (const f of this.food) if (!f.eaten) remaining.push(f);
       this.food = remaining;
     }
+
+    // Phylogeny tracking — internal interval, cheap when it skips.
+    this.phylo.tick(this, dtSec);
   }
 
   sampleOpenPoint() {

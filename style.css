@@ -456,6 +456,63 @@ body.erasing #canvas-host canvas { cursor: not-allowed; }
   padding: 18px 0;
 }
 
+.fw-phylo {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.fw-phylo::-webkit-scrollbar { width: 6px; }
+.fw-phylo::-webkit-scrollbar-thumb { background: var(--border-soft); border-radius: 3px; }
+
+.phylo-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  border-radius: 3px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.phylo-row:hover { background: rgba(30, 30, 46, 0.4); }
+
+.phylo-row.extinct {
+  opacity: 0.45;
+  font-style: italic;
+}
+
+.phylo-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: 0 0 4px currentColor;
+}
+
+.phylo-name {
+  flex: 1;
+  color: var(--text);
+}
+
+.phylo-pop {
+  color: var(--text-mute);
+  font-size: 9.5px;
+}
+
+.phylo-empty {
+  text-align: center;
+  font-size: 10.5px;
+  color: var(--text-mute);
+  font-style: italic;
+  padding: 18px 8px;
+  line-height: 1.5;
+}
+
 .fw-stat {
   display: flex;
   flex-direction: column;

@@ -6,6 +6,7 @@ import { Barrier, ensureNextBarrierId } from './barrier.js';
 import { Predator, ensureNextPredatorId } from './predator.js';
 import { Organism } from './organism.js';
 import { NeuralNet } from './neuralnet.js';
+import { Phylo, PhyloSpecies, ensureNextSpeciesId } from './phylo.js';
 
 const STORAGE_KEY = 'evolution_save_v1';
 
@@ -78,8 +79,18 @@ function serialize(w) {
       energy: o.energy, ageSec: o.ageSec, lineageId: o.lineageId,
       generation: o.generation,
       colorDrift: o.colorDrift ? [...o.colorDrift] : [0, 0, 0],
+      speciesId: o.speciesId,
       brain: Array.from(o.brain.weights),
     })),
+    phylo: {
+      species: w.phylo.species.map((s) => ({
+        id: s.id, parentId: s.parentId, lineageId: s.lineageId,
+        color: [...s.color],
+        bornTick: s.bornTick, diedTick: s.diedTick,
+        peakPop: s.peakPop, currentPop: s.currentPop,
+      })),
+      lineageRoots: [...w.phylo.lineageRoots.entries()],
+    },
     predators: w.predators.map((p) => ({
       id: p.id, x: p.x, y: p.y, heading: p.heading, currentSpeed: p.currentSpeed,
       energy: p.energy, ageSec: p.ageSec,
@@ -148,6 +159,27 @@ function deserialize(d) {
   }
   ensureNextBarrierId(maxBarrierId + 1);
 
+  // Rebuild the phylogeny first so organisms can reference species by id.
+  if (d.phylo) {
+    w.phylo = new Phylo();
+    let maxSpeciesId = 0;
+    for (const sd of d.phylo.species || []) {
+      const s = new PhyloSpecies(sd.id, sd.parentId, sd.lineageId, sd.color, sd.bornTick);
+      s.diedTick = sd.diedTick ?? null;
+      s.peakPop = sd.peakPop || 0;
+      s.currentPop = sd.currentPop || 0;
+      w.phylo.species.push(s);
+      if (sd.id > maxSpeciesId) maxSpeciesId = sd.id;
+    }
+    for (const [lid, sid] of d.phylo.lineageRoots || []) {
+      w.phylo.lineageRoots.set(lid, sid);
+    }
+    ensureNextSpeciesId(maxSpeciesId);
+  } else {
+    // Legacy save: rebuild fresh roots for every lineage.
+    w._rebuildPhylo();
+  }
+
   for (const od of d.organisms || []) {
     const brain = new NeuralNet(undefined, new Float32Array(od.brain));
     const o = new Organism(od.x, od.y, od.lineageId, brain, od.colorDrift);
@@ -156,6 +188,7 @@ function deserialize(d) {
     o.energy = od.energy;
     o.ageSec = od.ageSec;
     o.generation = od.generation;
+    o.speciesId = od.speciesId ?? w.phylo.lineageRoots.get(od.lineageId) ?? null;
     w.organisms.push(o);
   }
 

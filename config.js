@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.16',
+  version: 'v1.17',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -79,8 +79,19 @@ export const CONFIG = {
   // Per-individual colour drift accumulated across generations. The renderer
   // mixes the lineage base colour with the drift before drawing, so over
   // many generations descendants visibly diverge from their lineage hue.
-  colorDriftSigma: 3,               // gaussian std-dev (per channel, per birth)
-  colorDriftMax: 80,                // clamp |drift| per channel (0-255 scale)
+  colorDriftSigma: 9,               // gaussian std-dev (per channel, per birth)
+  colorDriftMax: 120,               // clamp |drift| per channel (0-255 scale)
+
+  // Phylogeny tracker (v1.17). Periodically the world looks at each species
+  // and, if the population's drift variance is high enough AND the species
+  // is old enough AND each candidate child cluster has a reasonable size,
+  // splits it into two via principal-axis partition. The thresholds below
+  // exist so tiny or short-lived sub-clusters don't pollute the tree.
+  phyloCheckIntervalSec: 4,         // how often to re-evaluate speciation
+  phyloMinAgeSec: 14,               // a species must live this long before splitting
+  phyloMinChildPop: 6,              // each child cluster must have >= this many orgs
+  phyloSplitStdThreshold: 22,       // total stddev of drift triggering a split
+  phyloMinDisplayPeakPop: 3,        // chart hides species that never reached this
 
   // Lineage palette — used as default colors when the user creates new lineages.
   // Each entry suggests a name and an RGB triple. Users may pick any custom color.
