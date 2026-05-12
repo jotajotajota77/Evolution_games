@@ -9,9 +9,10 @@ const state = {
 };
 
 const listeners = {
-  onPlaceHouse: null, // (x, y, radius) => void
-  onPlaceZone:  null, // (x, y, radius) => void
-  onToolChange: null, // (toolName) => void
+  onPlaceHouse:   null, // (x, y, radius) => void
+  onPlaceZone:    null, // (x, y, radius) => void
+  onPlaceBarrier: null, // (x1, y1, x2, y2) => void
+  onToolChange:   null, // (toolName) => void
 };
 
 export function setTool(name) {
@@ -42,6 +43,10 @@ export function onPlaceZone(cb) {
   listeners.onPlaceZone = cb;
 }
 
+export function onPlaceBarrier(cb) {
+  listeners.onPlaceBarrier = cb;
+}
+
 export function onToolChange(cb) {
   listeners.onToolChange = cb;
 }
@@ -49,7 +54,7 @@ export function onToolChange(cb) {
 // --- Mouse handlers wired by main.js into the p5 sketch ---
 export function onMouseDown(x, y) {
   if (state.modalOpen) return;
-  if (state.current === 'house' || state.current === 'zone') {
+  if (state.current === 'house' || state.current === 'zone' || state.current === 'barrier') {
     // Snapshot the active tool on the drag so a quick mid-drag tool switch
     // doesn't reroute the placement.
     state.drag = { startX: x, startY: y, currentX: x, currentY: y, tool: state.current };
@@ -76,6 +81,10 @@ export function onMouseUp() {
     const radius = Math.max(CONFIG.zoneMinRadius, Math.min(CONFIG.zoneMaxRadius, raw));
     if (raw >= CONFIG.zoneMinRadius / 2 && listeners.onPlaceZone) {
       listeners.onPlaceZone(d.startX, d.startY, radius);
+    }
+  } else if (d.tool === 'barrier') {
+    if (raw >= CONFIG.barrierMinLength && listeners.onPlaceBarrier) {
+      listeners.onPlaceBarrier(d.startX, d.startY, d.currentX, d.currentY);
     }
   }
   state.drag = null;

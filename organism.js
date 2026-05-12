@@ -48,17 +48,21 @@ export class Organism {
     this.heading += turn * CONFIG.organismTurnRate * stepScale;
     this.currentSpeed = desiredSpeed * CONFIG.organismMaxSpeed;
 
+    const prevX = this.x;
+    const prevY = this.y;
     this.x += Math.cos(this.heading) * this.currentSpeed * stepScale;
     this.y += Math.sin(this.heading) * this.currentSpeed * stepScale;
 
-    // 4. Bounce off bounds. Walls aren't visible to the NN in phase 2, so
-    //    reflection keeps wandering organisms from getting stuck on edges.
+    // 4a. Bounce off world bounds.
     if (this.x < 0) { this.x = 0; this.heading = Math.PI - this.heading; }
     else if (this.x > world.width) { this.x = world.width; this.heading = Math.PI - this.heading; }
     if (this.y < 0) { this.y = 0; this.heading = -this.heading; }
     else if (this.y > world.height) { this.y = world.height; this.heading = -this.heading; }
 
-    // 4b. Bounce out of any zone the lineage isn't allowed into.
+    // 4b. Bounce off any drawn barrier the lineage can't cross (phase 6).
+    world.enforceBarrierCrossings(this, prevX, prevY);
+
+    // 4c. Bounce out of any zone the lineage isn't allowed into.
     world.enforceZoneAccess(this);
 
     // 5. Eat anything within reach. Each pellet carries the energy value of

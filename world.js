@@ -2,6 +2,7 @@ import { CONFIG } from './config.js';
 import { Organism } from './organism.js';
 import { Lineage } from './lineage.js';
 import { sampleInCircle } from './house.js';
+import { segmentsCross } from './barrier.js';
 
 // A pellet of food. Each one stores the energy it grants — set at spawn-time
 // by the region that produced it (open world, house zone, or non-house zone).
@@ -63,6 +64,7 @@ export class World {
 
     this.houses = [];
     this.zones = [];                  // non-house zones (phase 5)
+    this.barriers = [];               // user-drawn line barriers (phase 6)
 
     this.tickSec = CONFIG.startAtNoon ? CONFIG.dayLengthSec / 2 : 0;
     this.foodSpawnAccumulator = 0;
@@ -164,6 +166,43 @@ export class World {
 
   addZone(zone) {
     this.zones.push(zone);
+  }
+
+  addBarrier(barrier) {
+    this.barriers.push(barrier);
+  }
+
+  // Called from organism.update with the position before the step. Any segment
+  // the organism crosses whose lineage isn't allowed reverts the position,
+  // reflects the heading across the segment's normal, and applies a small
+  // energy cost.
+  enforceBarrierCrossings(org, prevX, prevY) {
+    const a1 = { x: prevX, y: prevY };
+    const a2 = { x: org.x, y: org.y };
+    for (let i = 0; i < this.barriers.length; i++) {
+      const b = this.barriers[i];
+      if (b.isAllowed(org.lineageId)) continue;
+      const pts = b.points;
+      for (let j = 0; j < pts.length - 1; j++) {
+        if (segmentsCross(a1, a2, pts[j], pts[j + 1])) {
+          // Revert to pre-step position.
+          org.x = prevX;
+          org.y = prevY;
+          // Reflect heading across the segment's normal (proper bounce).
+          const sx = pts[j + 1].x - pts[j].x;
+          const sy = pts[j + 1].y - pts[j].y;
+          const len = Math.hypot(sx, sy) || 1;
+          const nx = -sy / len;
+          const ny =  sx / len;
+          const dx = Math.cos(org.heading);
+          const dy = Math.sin(org.heading);
+          const dot = dx * nx + dy * ny;
+          org.heading = Math.atan2(dy - 2 * dot * ny, dx - 2 * dot * nx);
+          org.energy -= CONFIG.barrierHitEnergyCost;
+          return; // one collision per frame is enough
+        }
+      }
+    }
   }
 
   // Spawns N founders for a house, with random brains, inside its zone.

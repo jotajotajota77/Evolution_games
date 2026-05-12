@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { segmentSide, raySegmentT } from './barrier.js';
 
 // Sensor layout (34 inputs total):
 //   [0..23]  vision: 8 rays * 3 values (distance, type, passable)
@@ -55,10 +56,82 @@ function fillVision(org, world) {
     _nearestPass[r] = 0;
   }
 
-  // Phase 2: only food and other organisms are detectable.
-  // Walls/barriers/predators activate in phases 6-7.
+  // Walls (world bounds): always opaque, always blocking. Tested first so
+  // they cap each ray's reach; entities further than the wall are pruned.
+  testWalls(org, world.width, world.height, range);
+
   testEntities(org, world.food, CONFIG.foodRadius, SENSOR_TYPES.FOOD, 1, range, true);
   testEntities(org, world.organisms, CONFIG.organismRadius, SENSOR_TYPES.ORG, 1, range, false);
+
+  // Drawn barriers (phase 6). For each ray, only barriers OPAQUE FROM THE
+  // ORGANISM'S SIDE compete for the nearest hit; transparent ones are
+  // skipped entirely — the ray sees through them to whatever lies beyond.
+  testBarriers(org, world.barriers, range);
+}
+
+function testWalls(org, worldW, worldH, range) {
+  for (let r = 0; r < NUM_RAYS; r++) {
+    const dx = _dirX[r], dy = _dirY[r];
+    let bestT = _nearestDist[r];
+    // Each axis-aligned edge: solve for t where ray hits the plane, then
+    // verify the orthogonal coord lies within the world span.
+    if (dx !== 0) {
+      let t = (0 - org.x) / dx;
+      if (t > 0 && t < bestT) {
+        const yy = org.y + dy * t;
+        if (yy >= 0 && yy <= worldH) bestT = t;
+      }
+      t = (worldW - org.x) / dx;
+      if (t > 0 && t < bestT) {
+        const yy = org.y + dy * t;
+        if (yy >= 0 && yy <= worldH) bestT = t;
+      }
+    }
+    if (dy !== 0) {
+      let t = (0 - org.y) / dy;
+      if (t > 0 && t < bestT) {
+        const xx = org.x + dx * t;
+        if (xx >= 0 && xx <= worldW) bestT = t;
+      }
+      t = (worldH - org.y) / dy;
+      if (t > 0 && t < bestT) {
+        const xx = org.x + dx * t;
+        if (xx >= 0 && xx <= worldW) bestT = t;
+      }
+    }
+    if (bestT < _nearestDist[r]) {
+      _nearestDist[r] = bestT;
+      _nearestType[r] = SENSOR_TYPES.WALL;
+      _nearestPass[r] = 0;
+    }
+  }
+}
+
+function testBarriers(org, barriers, range) {
+  for (let b = 0; b < barriers.length; b++) {
+    const bar = barriers[b];
+    const pts = bar.points;
+    const passable = bar.isAllowed(org.lineageId) ? 1 : 0;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      // Determine which side of THIS segment the organism is on, and skip
+      // if the barrier is transparent from that side.
+      const side = segmentSide(p1, p2, org);
+      const transparent =
+        (side >= 0 && bar.transparentFromSideA) ||
+        (side <  0 && bar.transparentFromSideB);
+      if (transparent) continue;
+
+      for (let r = 0; r < NUM_RAYS; r++) {
+        const t = raySegmentT(org.x, org.y, _dirX[r], _dirY[r], p1, p2, range);
+        if (t == null || t >= _nearestDist[r]) continue;
+        _nearestDist[r] = t;
+        _nearestType[r] = SENSOR_TYPES.BARRIER;
+        _nearestPass[r] = passable;
+      }
+    }
+  }
 }
 
 // Common helper for any list of circular entities. `skipEaten` filters food

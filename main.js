@@ -2,17 +2,18 @@ import { CONFIG } from './config.js';
 import { World } from './world.js';
 import {
   attachP5, rebuildVignette, drawTrailFade,
-  drawFood, drawOrganisms, drawHouses, drawZones, drawHousePreview,
+  drawFood, drawOrganisms, drawHouses, drawZones, drawBarriers, drawPlacementPreview,
   drawVignette, drawNightTint, paintBackground,
 } from './renderer.js';
 import { createLineage, suggestNextLineageDefaults } from './lineage.js';
 import { House } from './house.js';
 import { Zone } from './zone.js';
+import { Barrier } from './barrier.js';
 import {
-  setTool, getTool, isModalOpen, onPlaceHouse, onPlaceZone, onToolChange,
+  setTool, getTool, isModalOpen, onPlaceHouse, onPlaceZone, onPlaceBarrier, onToolChange,
   onMouseDown, onMouseMove, onMouseUp, getDrag,
 } from './tools.js';
-import { showHouseModal, showZoneModal } from './ui.js';
+import { showHouseModal, showZoneModal, showBarrierModal } from './ui.js';
 import { FloatingWindow } from './windows.js';
 
 // ---- runtime state ----
@@ -83,9 +84,10 @@ const sketch = (p) => {
     drawTrailFade(state.world.currentBgColor());
     drawZones(state.world);
     drawHouses(state.world);
+    drawBarriers(state.world);
     drawFood(state.world);
     drawOrganisms(state.world);
-    drawHousePreview(getDrag());
+    drawPlacementPreview(getDrag());
     drawVignette();
     drawNightTint(state.world.daylight);
   };
@@ -750,6 +752,29 @@ function setupToolbar() {
 // ============================================================================
 // House placement flow
 // ============================================================================
+function handlePlaceBarrier(x1, y1, x2, y2) {
+  const w = state.world;
+  const existingLineages = [...w.lineages.values()];
+  showBarrierModal(
+    existingLineages,
+    (data) => {
+      const barrier = new Barrier(
+        [{ x: x1, y: y1 }, { x: x2, y: y2 }],
+        {
+          color: data.color,
+          thickness: data.thickness,
+          allowedLineages: data.allowedLineages,
+          transparentFromSideA: data.transparentFromSideA,
+          transparentFromSideB: data.transparentFromSideB,
+        },
+      );
+      w.addBarrier(barrier);
+      setTool('select');
+    },
+    () => setTool('select'),
+  );
+}
+
 function handlePlaceZone(x, y, radius) {
   const w = state.world;
   const existingLineages = [...w.lineages.values()];
@@ -815,6 +840,7 @@ window.addEventListener('DOMContentLoaded', () => {
   setupToolbar();
   onPlaceHouse(handlePlaceHouse);
   onPlaceZone(handlePlaceZone);
+  onPlaceBarrier(handlePlaceBarrier);
 
   const v = document.getElementById('version-tag');
   if (v) v.textContent = CONFIG.version;

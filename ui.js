@@ -80,6 +80,54 @@ export function showHouseModal(suggested, existingLineages, onConfirm, onCancel)
   cancelBtn.addEventListener('click', cancel);
 }
 
+// Opens the new-barrier modal. Allowed lineages start unticked: by default
+// a barrier blocks every lineage.
+export function showBarrierModal(existingLineages, onConfirm, onCancel) {
+  const form = document.getElementById('barrier-form');
+  const d = CONFIG.barrierDefaults;
+
+  renderAccessList('barrier-access-list', [...existingLineages]);
+
+  form.elements['color'].value = rgbToHex(d.color);
+  form.elements['thickness'].value = d.thickness;
+  form.elements['transFromSideA'].checked = d.transparentFromSideA;
+  form.elements['transFromSideB'].checked = d.transparentFromSideB;
+
+  showBackdrop('barrier-modal');
+
+  const submit = (e) => {
+    e.preventDefault();
+    const allowedLineages = new Set();
+    document.querySelectorAll('#barrier-access-list input[type="checkbox"]:checked')
+      .forEach((cb) => allowedLineages.add(parseInt(cb.dataset.lineageId, 10)));
+    const data = {
+      color: hexToRgb(form.elements['color'].value),
+      thickness: clampInt(form.elements['thickness'].value, 1, 20, d.thickness),
+      transparentFromSideA: form.elements['transFromSideA'].checked,
+      transparentFromSideB: form.elements['transFromSideB'].checked,
+      allowedLineages,
+    };
+    cleanup();
+    onConfirm(data);
+  };
+
+  const cancel = () => {
+    cleanup();
+    if (onCancel) onCancel();
+  };
+
+  const cancelBtn = document.getElementById('btn-barrier-cancel');
+
+  function cleanup() {
+    hideBackdrop();
+    form.removeEventListener('submit', submit);
+    cancelBtn.removeEventListener('click', cancel);
+  }
+
+  form.addEventListener('submit', submit);
+  cancelBtn.addEventListener('click', cancel);
+}
+
 // Opens the new-zone modal. Zones have no name/colour-coded lineage; if no
 // access checkboxes are ticked, the zone is open to everyone.
 export function showZoneModal(existingLineages, onConfirm, onCancel) {

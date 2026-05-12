@@ -117,19 +117,49 @@ export function drawHouses(world) {
   p.noStroke();
 }
 
-// Preview circle while the user drags out a new house.
-export function drawHousePreview(drag) {
-  if (!p || !drag) return;
-  const dx = drag.currentX - drag.startX;
-  const dy = drag.currentY - drag.startY;
-  const r = Math.hypot(dx, dy);
-  p.noFill();
-  p.stroke(180, 220, 255, 160);
-  p.strokeWeight(1);
-  p.circle(drag.startX, drag.startY, Math.max(1, r * 2));
-  p.fill(180, 220, 255, 200);
+// Drawn barriers — thick line per segment. Stroke alpha is dimmed when the
+// barrier is transparent on either side, hinting at the see-through nature.
+export function drawBarriers(world) {
+  if (!p || !world.barriers.length) return;
+  for (const b of world.barriers) {
+    const [r, g, gb] = b.color;
+    const transparency = (b.transparentFromSideA ? 1 : 0) + (b.transparentFromSideB ? 1 : 0);
+    const alpha = 220 - transparency * 60;  // both transparent → 100, one → 160, none → 220
+    p.stroke(r, g, gb, alpha);
+    p.strokeWeight(b.thickness);
+    p.strokeCap?.(p.ROUND);
+    for (let i = 0; i < b.points.length - 1; i++) {
+      const a = b.points[i], c = b.points[i + 1];
+      p.line(a.x, a.y, c.x, c.y);
+    }
+  }
   p.noStroke();
-  p.circle(drag.startX, drag.startY, 4);
+}
+
+// Generic placement preview: dispatches on tool kind so house/zone/barrier
+// each get their own ghost. drag.tool is set by tools.js on mousedown.
+export function drawPlacementPreview(drag) {
+  if (!p || !drag) return;
+  if (drag.tool === 'house' || drag.tool === 'zone') {
+    const dx = drag.currentX - drag.startX;
+    const dy = drag.currentY - drag.startY;
+    const r = Math.hypot(dx, dy);
+    p.noFill();
+    p.stroke(180, 220, 255, 160);
+    p.strokeWeight(1);
+    p.circle(drag.startX, drag.startY, Math.max(1, r * 2));
+    p.fill(180, 220, 255, 200);
+    p.noStroke();
+    p.circle(drag.startX, drag.startY, 4);
+  } else if (drag.tool === 'barrier') {
+    p.stroke(220, 200, 130, 220);
+    p.strokeWeight(3);
+    p.line(drag.startX, drag.startY, drag.currentX, drag.currentY);
+    p.noStroke();
+    p.fill(220, 200, 130, 220);
+    p.circle(drag.startX, drag.startY, 5);
+    p.circle(drag.currentX, drag.currentY, 5);
+  }
 }
 
 export function drawVignette() {

@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.9',
+  version: 'v1.10',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -106,6 +106,15 @@ export const CONFIG = {
   houseMaxRadius: 220,
   zoneMinRadius: 30,
   zoneMaxRadius: 260,
+
+  // Barrier (free-drawn) defaults
+  barrierMinLength: 18,             // px; below this, drag is ignored
+  barrierDefaults: {
+    color: [220, 180, 90],
+    thickness: 4,
+    transparentFromSideA: false,
+    transparentFromSideB: false,
+  },
 
   // Zone (non-house) defaults — pre-filled into the zone placement modal.
   // Zones with an empty allowedLineages set are open to everyone (spec

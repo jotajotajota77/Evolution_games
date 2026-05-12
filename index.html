@@ -16,7 +16,7 @@
 
     <!-- Translucent HUD (top-left) -->
     <div id="hud" class="overlay fade-target">
-      <div class="hud-row"><span class="hud-label">phase</span><span id="hud-phase">5</span></div>
+      <div class="hud-row"><span class="hud-label">phase</span><span id="hud-phase">6</span></div>
       <div class="hud-row"><span class="hud-label">pop</span><span id="hud-pop">0</span></div>
       <div class="hud-row"><span class="hud-label">gen</span><span id="hud-gen">0</span></div>
       <div class="hud-row"><span class="hud-label">food</span><span id="hud-food">0</span></div>
@@ -29,6 +29,7 @@
       <button class="tool active" data-tool="select" title="Select / pan">◇</button>
       <button class="tool" data-tool="house" title="Place house: click + drag">⌂</button>
       <button class="tool" data-tool="zone" title="Place zone: click + drag">◯</button>
+      <button class="tool" data-tool="barrier" title="Draw barrier: click + drag">▬</button>
     </div>
 
     <!-- Bottom app bar -->
@@ -171,6 +172,39 @@
 
           <div class="modal-actions">
             <button type="button" id="btn-zone-cancel" class="btn-secondary">cancel</button>
+            <button type="submit" class="btn-primary">create</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="barrier-modal" class="modal hidden">
+        <h2>New Barrier</h2>
+        <p class="modal-hint">A wall segment. Lineages you tick may cross; others bounce off.</p>
+        <form id="barrier-form" autocomplete="off">
+          <div class="form-row">
+            <label>color</label>
+            <input type="color" name="color" />
+          </div>
+          <div class="form-row">
+            <label>thickness</label>
+            <input type="number" name="thickness" min="1" max="20" step="1" />
+          </div>
+
+          <div class="form-section">access — allowed to cross</div>
+          <p class="modal-hint thin">leave all unchecked to block every lineage.</p>
+          <div id="barrier-access-list" class="access-list"></div>
+
+          <div class="form-section">visibility</div>
+          <p class="modal-hint thin">"side A" is the left of the segment direction (start → end).</p>
+          <div class="form-row">
+            <label class="checkbox"><input type="checkbox" name="transFromSideA" /> transparent from side A</label>
+          </div>
+          <div class="form-row">
+            <label class="checkbox"><input type="checkbox" name="transFromSideB" /> transparent from side B</label>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" id="btn-barrier-cancel" class="btn-secondary">cancel</button>
             <button type="submit" class="btn-primary">create</button>
           </div>
         </form>
