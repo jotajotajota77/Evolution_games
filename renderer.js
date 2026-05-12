@@ -117,6 +117,34 @@ export function drawHouses(world) {
   p.noStroke();
 }
 
+// Predators — bigger, saturated red, strong glow, tiny heading tick so the
+// user can see what they're chasing. Drawn over organisms.
+export function drawPredators(world) {
+  if (!p || !world.predators.length) return;
+  const ctx = p.drawingContext;
+  ctx.shadowBlur = 14;
+  p.noStroke();
+  for (const pr of world.predators) {
+    if (!pr.alive) continue;
+    const energyAlpha = 200 + Math.min(55, (pr.energy / CONFIG.predatorMaxEnergy) * 55);
+    ctx.shadowColor = 'rgba(255, 90, 100, 0.95)';
+    p.fill(255, 90, 100, energyAlpha);
+    p.circle(pr.x, pr.y, CONFIG.predatorRadius * 2);
+  }
+  ctx.shadowBlur = 0;
+  // Heading tick — a faint forward stroke per predator. Done in a second
+  // pass without shadow so it stays crisp.
+  p.stroke(255, 210, 210, 200);
+  p.strokeWeight(1);
+  for (const pr of world.predators) {
+    if (!pr.alive) continue;
+    const dx = Math.cos(pr.heading) * (CONFIG.predatorRadius + 2);
+    const dy = Math.sin(pr.heading) * (CONFIG.predatorRadius + 2);
+    p.line(pr.x, pr.y, pr.x + dx, pr.y + dy);
+  }
+  p.noStroke();
+}
+
 // Drawn barriers — thick line per segment. Stroke alpha is dimmed when the
 // barrier is transparent on either side, hinting at the see-through nature.
 export function drawBarriers(world) {

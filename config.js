@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.10',
+  version: 'v1.11',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -131,6 +131,20 @@ export const CONFIG = {
   // allowed into. Small enough that occasional bumps don't kill, big
   // enough to discourage pressing against the boundary.
   barrierHitEnergyCost: 0.6,
+
+  // Predators (phase 7). Scripted agents that pursue the nearest organism.
+  // House barriers always exclude them; zones with predatorsAllowed=false
+  // bounce them out.
+  predatorRadius: 6,
+  predatorMaxSpeed: 2.2,             // faster than organism's 1.6
+  predatorTurnRate: 0.14,            // rad/frame at 60fps
+  predatorSenseRange: 160,
+  predatorEatRadius: 9,
+  predatorMaxEnergy: 100,
+  predatorStartEnergy: 60,
+  predatorEnergyDecayPerSec: 2.0,
+  predatorEnergyPerKill: 55,
+  predatorEatCooldownSec: 1.4,
 
   // UI fade behaviour (configurable via the "config" popup slider).
   uiAutohideThreshold: 95,          // slider %; above this, auto-hide kicks in

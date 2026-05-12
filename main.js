@@ -2,8 +2,8 @@ import { CONFIG } from './config.js';
 import { World } from './world.js';
 import {
   attachP5, rebuildVignette, drawTrailFade,
-  drawFood, drawOrganisms, drawHouses, drawZones, drawBarriers, drawPlacementPreview,
-  drawVignette, drawNightTint, paintBackground,
+  drawFood, drawOrganisms, drawHouses, drawZones, drawBarriers, drawPredators,
+  drawPlacementPreview, drawVignette, drawNightTint, paintBackground,
 } from './renderer.js';
 import { createLineage, suggestNextLineageDefaults } from './lineage.js';
 import { House } from './house.js';
@@ -87,6 +87,7 @@ const sketch = (p) => {
     drawBarriers(state.world);
     drawFood(state.world);
     drawOrganisms(state.world);
+    drawPredators(state.world);
     drawPlacementPreview(getDrag());
     drawVignette();
     drawNightTint(state.world.daylight);
@@ -137,6 +138,7 @@ function updateHud() {
   const w = state.world;
   if (!w) return;
   document.getElementById('hud-pop').textContent = w.organisms.length;
+  document.getElementById('hud-preds').textContent = w.predators.length;
   document.getElementById('hud-food').textContent = w.food.length;
   document.getElementById('hud-fps').textContent = state.fps;
   document.getElementById('hud-gen').textContent = w.maxGenerationSeen || 0;
@@ -304,12 +306,14 @@ const chartFactories = {
       chart.data.labels = ['deaths'];
       chart.data.datasets = [
         { label: 'starvation', data: [0], backgroundColor: '#ff6b6b' },
+        { label: 'predation',  data: [0], backgroundColor: '#c87fff' },
         { label: 'age',        data: [0], backgroundColor: '#7fa9ff' },
       ];
       const update = () => {
         const w = state.world;
         chart.data.datasets[0].data = [w.deathsByCause.starvation || 0];
-        chart.data.datasets[1].data = [w.deathsByCause.age || 0];
+        chart.data.datasets[1].data = [w.deathsByCause.predation || 0];
+        chart.data.datasets[2].data = [w.deathsByCause.age || 0];
         chart.update('none');
       };
       update();
@@ -650,7 +654,14 @@ function setupBottomBar() {
     for (const arr of history.enByLin.values()) arr.length = 0;
     state.world.deathsByCause.starvation = 0;
     state.world.deathsByCause.age = 0;
+    state.world.deathsByCause.predation = 0;
     closeAllPopups();
+  });
+  popups.world.querySelector('[data-action="spawn-predator"]').addEventListener('click', () => {
+    state.world.spawnPredator();
+  });
+  popups.world.querySelector('[data-action="clear-predators"]').addEventListener('click', () => {
+    state.world.predators.length = 0;
   });
 
   // Settings: transparency slider

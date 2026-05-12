@@ -1,0 +1,115 @@
+import { CONFIG } from './config.js';
+
+// Sentinel lineage id for predators. Never appears in any allowedLineages
+// set, so all the existing region access helpers (barriers, houses) reject
+// predators by default. Zones use a separate `predatorsAllowed` flag.
+export const PREDATOR_LINEAGE_ID = -1;
+
+let nextPredatorId = 1;
+
+// Scripted predator. No NN: steers toward the nearest organism and attacks
+// on contact. Energy decays continuously; each kill restores a chunk.
+// A short cooldown after a kill avoids machine-gun feeding.
+export class Predator {
+  constructor(x, y) {
+    this.id = nextPredatorId++;
+    this.x = x;
+    this.y = y;
+    this.heading = Math.random() * Math.PI * 2;
+    this.currentSpeed = 0;
+    this.energy = CONFIG.predatorStartEnergy;
+    this.ageSec = 0;
+    this.alive = true;
+    this.causeOfDeath = null;
+    this.eatCooldownSec = 0;
+    // Marker used by region helpers + sensor code.
+    this.lineageId = PREDATOR_LINEAGE_ID;
+    this.isPredator = true;
+  }
+
+  update(dtSec, world) {
+    if (!this.alive) return;
+    this.ageSec += dtSec;
+    if (this.eatCooldownSec > 0) this.eatCooldownSec = Math.max(0, this.eatCooldownSec - dtSec);
+
+    // --- Targeting: nearest live organism within sense range.
+    const target = nearestPrey(this, world);
+
+    if (target) {
+      // Steer toward target, capped by turn rate.
+      const dx = target.x - this.x;
+      const dy = target.y - this.y;
+      const desired = Math.atan2(dy, dx);
+      let delta = desired - this.heading;
+      while (delta > Math.PI) delta -= 2 * Math.PI;
+      while (delta < -Math.PI) delta += 2 * Math.PI;
+      const maxTurn = CONFIG.predatorTurnRate * dtSec * CONFIG.targetFps;
+      if (delta > maxTurn) delta = maxTurn;
+      else if (delta < -maxTurn) delta = -maxTurn;
+      this.heading += delta;
+      this.currentSpeed = CONFIG.predatorMaxSpeed;
+    } else {
+      // Idle wander — slow drift so predators don't all stack at one spot.
+      this.heading += (Math.random() - 0.5) * 0.06;
+      this.currentSpeed = CONFIG.predatorMaxSpeed * 0.45;
+    }
+
+    const prevX = this.x;
+    const prevY = this.y;
+
+    const stepScale = dtSec * CONFIG.targetFps;
+    this.x += Math.cos(this.heading) * this.currentSpeed * stepScale;
+    this.y += Math.sin(this.heading) * this.currentSpeed * stepScale;
+
+    // Bounce off world bounds.
+    if (this.x < 0) { this.x = 0; this.heading = Math.PI - this.heading; }
+    else if (this.x > world.width) { this.x = world.width; this.heading = Math.PI - this.heading; }
+    if (this.y < 0) { this.y = 0; this.heading = -this.heading; }
+    else if (this.y > world.height) { this.y = world.height; this.heading = -this.heading; }
+
+    // Drawn barriers: same enforcer as organisms — predator's lineage id
+    // never appears in any allowedLineages, so they always bounce.
+    world.enforceBarrierCrossings(this, prevX, prevY);
+
+    // House + no-predator-zone bouncing.
+    world.enforcePredatorBounds(this);
+
+    // --- Attack: closest live organism within eat radius dies.
+    if (this.eatCooldownSec === 0) {
+      const er2 = CONFIG.predatorEatRadius * CONFIG.predatorEatRadius;
+      for (const o of world.organisms) {
+        if (!o.alive) continue;
+        const ddx = o.x - this.x;
+        const ddy = o.y - this.y;
+        if (ddx * ddx + ddy * ddy < er2) {
+          o.alive = false;
+          o.causeOfDeath = 'predation';
+          this.energy = Math.min(CONFIG.predatorMaxEnergy, this.energy + CONFIG.predatorEnergyPerKill);
+          this.eatCooldownSec = CONFIG.predatorEatCooldownSec;
+          break;
+        }
+      }
+    }
+
+    // Energy decay; starvation if it falls to zero.
+    this.energy -= CONFIG.predatorEnergyDecayPerSec * dtSec;
+    if (this.energy <= 0) {
+      this.alive = false;
+      this.causeOfDeath = 'starvation';
+    }
+  }
+}
+
+function nearestPrey(pred, world) {
+  const range2 = CONFIG.predatorSenseRange * CONFIG.predatorSenseRange;
+  let best = null;
+  let bestD2 = range2;
+  for (const o of world.organisms) {
+    if (!o.alive) continue;
+    const dx = o.x - pred.x;
+    const dy = o.y - pred.y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < bestD2) { bestD2 = d2; best = o; }
+  }
+  return best;
+}

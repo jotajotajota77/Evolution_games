@@ -3,6 +3,7 @@ import { Organism } from './organism.js';
 import { Lineage } from './lineage.js';
 import { sampleInCircle } from './house.js';
 import { segmentsCross } from './barrier.js';
+import { Predator } from './predator.js';
 
 // A pellet of food. Each one stores the energy it grants — set at spawn-time
 // by the region that produced it (open world, house zone, or non-house zone).
@@ -65,10 +66,11 @@ export class World {
     this.houses = [];
     this.zones = [];                  // non-house zones (phase 5)
     this.barriers = [];               // user-drawn line barriers (phase 6)
+    this.predators = [];              // scripted predators (phase 7)
 
     this.tickSec = CONFIG.startAtNoon ? CONFIG.dayLengthSec / 2 : 0;
     this.foodSpawnAccumulator = 0;
-    this.deathsByCause = { starvation: 0, age: 0 };
+    this.deathsByCause = { starvation: 0, age: 0, predation: 0 };
     this.totalBirths = 0;
     this.maxGenerationSeen = 0;
 
@@ -134,6 +136,7 @@ export class World {
   reset() {
     this.organisms.length = 0;
     this.food.length = 0;
+    this.predators.length = 0;
     // Houses + lineages are part of the configured world, so they survive reset.
     // Only living state is cleared. Reset accumulators on houses so they don't
     // burst-spawn after pause-resume.
@@ -142,7 +145,7 @@ export class World {
     this.tickSec = CONFIG.startAtNoon ? CONFIG.dayLengthSec / 2 : 0;
     this._recomputeDayCycle();
     this.foodSpawnAccumulator = 0;
-    this.deathsByCause = { starvation: 0, age: 0 };
+    this.deathsByCause = { starvation: 0, age: 0, predation: 0 };
     this.totalBirths = 0;
     this.maxGenerationSeen = 0;
     // Re-seed default lineage so the world isn't empty after reset.
@@ -170,6 +173,53 @@ export class World {
 
   addBarrier(barrier) {
     this.barriers.push(barrier);
+  }
+
+  // Pick a valid spawn for a predator: not inside any house, not inside any
+  // zone that excludes predators. Returns null if no point found.
+  samplePredatorSpawn() {
+    for (let i = 0; i < 24; i++) {
+      const x = Math.random() * this.width;
+      const y = Math.random() * this.height;
+      if (this.houseContaining(x, y)) continue;
+      let blocked = false;
+      for (const z of this.zones) {
+        if (z.contains(x, y) && !z.zone.predatorsAllowed) { blocked = true; break; }
+      }
+      if (blocked) continue;
+      return { x, y };
+    }
+    return null;
+  }
+
+  spawnPredator() {
+    const pt = this.samplePredatorSpawn();
+    if (!pt) return null;
+    const pred = new Predator(pt.x, pt.y);
+    this.predators.push(pred);
+    return pred;
+  }
+
+  // Houses bounce all predators. Zones bounce predators when
+  // predatorsAllowed is false. Cheaper than going through enforceZoneAccess
+  // since organisms and predators have asymmetric zone rules.
+  enforcePredatorBounds(pred) {
+    bounceFromList(pred, this.houses);
+    for (let i = 0; i < this.zones.length; i++) {
+      const z = this.zones[i];
+      if (z.zone.predatorsAllowed) continue;
+      const dx = pred.x - z.x;
+      const dy = pred.y - z.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq >= z.radius * z.radius) continue;
+      const dist = Math.sqrt(distSq) || 0.0001;
+      const push = (z.radius - dist) + 0.5;
+      pred.x += (dx / dist) * push;
+      pred.y += (dy / dist) * push;
+      pred.heading = Math.atan2(dy, dx);
+      // No energy penalty for predators on bounce — they're not "trying" to
+      // enter, just deflected.
+    }
   }
 
   // Called from organism.update with the position before the step. Any segment
@@ -292,6 +342,16 @@ export class World {
     if (newBorns.length) {
       this.organisms.push(...newBorns);
       this.totalBirths += newBorns.length;
+    }
+
+    // --- Predators ---
+    for (let i = 0; i < this.predators.length; i++) {
+      this.predators[i].update(dtSec, this);
+    }
+    if (this.predators.length) {
+      const aliveP = [];
+      for (const pr of this.predators) if (pr.alive) aliveP.push(pr);
+      this.predators = aliveP;
     }
 
     // Cull dead organisms in a single sweep.

@@ -62,6 +62,8 @@ function fillVision(org, world) {
 
   testEntities(org, world.food, CONFIG.foodRadius, SENSOR_TYPES.FOOD, 1, range, true);
   testEntities(org, world.organisms, CONFIG.organismRadius, SENSOR_TYPES.ORG, 1, range, false);
+  // Phase 7: predators register on the same per-ray nearest-hit map.
+  testEntities(org, world.predators, CONFIG.predatorRadius, SENSOR_TYPES.PRED, 1, range, false);
 
   // Drawn barriers (phase 6). For each ray, only barriers OPAQUE FROM THE
   // ORGANISM'S SIDE compete for the nearest hit; transparent ones are
