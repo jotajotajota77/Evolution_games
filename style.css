@@ -386,6 +386,71 @@ body.placing #canvas-host canvas { cursor: crosshair; }
   height: 100%;
 }
 
+.fw-brains {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.fw-brains::-webkit-scrollbar { width: 6px; }
+.fw-brains::-webkit-scrollbar-track { background: transparent; }
+.fw-brains::-webkit-scrollbar-thumb { background: var(--border-soft); border-radius: 3px; }
+
+.brains-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  background: rgba(8, 8, 16, 0.5);
+}
+
+.brains-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.brains-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: 0 0 4px currentColor;
+}
+
+.brains-name {
+  color: var(--text-dim);
+  flex: 1;
+  text-transform: lowercase;
+}
+
+.brains-age {
+  color: var(--text-mute);
+  font-size: 9.5px;
+}
+
+.brains-canvas {
+  display: block;
+  width: 100%;
+  height: 90px;
+  background: rgba(0, 0, 0, 0.32);
+  border-radius: 3px;
+}
+
+.brains-empty {
+  text-align: center;
+  font-size: 18px;
+  color: var(--text-mute);
+  padding: 18px 0;
+}
+
 .fw-stat {
   display: flex;
   flex-direction: column;

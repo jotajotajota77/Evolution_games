@@ -369,7 +369,145 @@ const chartFactories = {
       return { chart: null, update };
     },
   }),
+  brains: () => ({
+    title: 'longest-lived brains',
+    width: 380,
+    height: 420,
+    factory: (host) => {
+      host.innerHTML = '<div class="fw-brains"></div>';
+      const listEl = host.querySelector('.fw-brains');
+      const update = () => renderBrainsList(listEl);
+      update();
+      return { chart: null, update };
+    },
+  }),
 };
+
+// Finds the longest-lived currently-alive organism per lineage and renders a
+// row with a compact neural-network diagram for each. Rebuilds the DOM each
+// tick — cheap with <10 lineages and small canvases.
+function renderBrainsList(host) {
+  const w = state.world;
+  if (!w) return;
+
+  const oldestByLin = new Map();
+  for (const o of w.organisms) {
+    const cur = oldestByLin.get(o.lineageId);
+    if (!cur || o.ageSec > cur.ageSec) oldestByLin.set(o.lineageId, o);
+  }
+
+  host.innerHTML = '';
+  for (const lin of w.lineages.values()) {
+    const row = document.createElement('div');
+    row.className = 'brains-row';
+
+    const meta = document.createElement('div');
+    meta.className = 'brains-meta';
+    const swatch = document.createElement('span');
+    swatch.className = 'brains-swatch';
+    swatch.style.background = `rgb(${lin.color[0]}, ${lin.color[1]}, ${lin.color[2]})`;
+    const name = document.createElement('span');
+    name.className = 'brains-name';
+    name.textContent = lin.name;
+    const stat = document.createElement('span');
+    stat.className = 'brains-age';
+    meta.appendChild(swatch);
+    meta.appendChild(name);
+    meta.appendChild(stat);
+    row.appendChild(meta);
+
+    const org = oldestByLin.get(lin.id);
+    if (!org) {
+      stat.textContent = 'extinct';
+      const empty = document.createElement('div');
+      empty.className = 'brains-empty';
+      empty.textContent = '—';
+      row.appendChild(empty);
+    } else {
+      stat.textContent = `gen ${org.generation} · ${org.ageSec.toFixed(1)}s · e${Math.round(org.energy)}`;
+      const canvas = document.createElement('canvas');
+      canvas.className = 'brains-canvas';
+      canvas.width = 340;
+      canvas.height = 90;
+      row.appendChild(canvas);
+      // Defer until layout so devicePixelRatio path could be used later.
+      drawNeuralNet(canvas, org.brain, lin.color);
+    }
+
+    host.appendChild(row);
+  }
+}
+
+// Compact NN diagram: 4 columns of dots, weighted lines between layers.
+// Green = positive weight, red = negative; alpha scales with |weight|.
+function drawNeuralNet(canvas, brain, lineageColor) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const layers = brain.layers;
+  const padX = 14, padY = 6;
+  const innerW = W - padX * 2;
+  const innerH = H - padY * 2;
+
+  // Pre-compute node positions per layer.
+  const nodes = layers.map((count, layerIdx) => {
+    const x = padX + (innerW * layerIdx) / (layers.length - 1);
+    const positions = new Array(count);
+    for (let i = 0; i < count; i++) {
+      positions[i] = { x, y: padY + (innerH * (i + 0.5)) / count };
+    }
+    return positions;
+  });
+
+  // Edges — normalise alpha per layer so each layer's strongest weight pops.
+  for (let layerIdx = 1; layerIdx < layers.length; layerIdx++) {
+    const fromNodes = nodes[layerIdx - 1];
+    const toNodes = nodes[layerIdx];
+    const wBase = brain.layerOffsets[layerIdx - 1];
+    const inSize = layers[layerIdx - 1];
+    const outSize = layers[layerIdx];
+    const stride = inSize + 1;
+
+    let maxAbs = 1e-4;
+    for (let i = 0; i < outSize * stride; i++) {
+      const a = Math.abs(brain.weights[wBase + i]);
+      if (a > maxAbs) maxAbs = a;
+    }
+
+    ctx.lineWidth = 0.6;
+    for (let o = 0; o < outSize; o++) {
+      const rowStart = wBase + o * stride;
+      for (let i = 0; i < inSize; i++) {
+        const ww = brain.weights[rowStart + i];
+        const absW = Math.abs(ww);
+        // Drop the bottom 25% by magnitude — visual signal-to-noise.
+        if (absW < maxAbs * 0.25) continue;
+        const alpha = Math.min(0.85, (absW / maxAbs) * 0.7);
+        ctx.strokeStyle = ww > 0
+          ? `rgba(127, 255, 212, ${alpha})`
+          : `rgba(255, 107, 107, ${alpha})`;
+        ctx.beginPath();
+        ctx.moveTo(fromNodes[i].x, fromNodes[i].y);
+        ctx.lineTo(toNodes[o].x, toNodes[o].y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Nodes — last layer (outputs) tinted lineage colour as a subtle accent.
+  for (let layerIdx = 0; layerIdx < layers.length; layerIdx++) {
+    const isOutput = layerIdx === layers.length - 1;
+    ctx.fillStyle = isOutput
+      ? `rgb(${lineageColor[0]}, ${lineageColor[1]}, ${lineageColor[2]})`
+      : 'rgba(220, 220, 232, 0.9)';
+    for (const n of nodes[layerIdx]) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, isOutput ? 2.2 : 1.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
 
 function openChartWindow(key) {
   if (openCharts.has(key)) return; // already open
