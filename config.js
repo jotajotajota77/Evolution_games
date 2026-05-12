@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.11',
+  version: 'v1.12',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -140,11 +140,11 @@ export const CONFIG = {
   predatorTurnRate: 0.14,            // rad/frame at 60fps
   predatorSenseRange: 160,
   predatorEatRadius: 9,
-  predatorMaxEnergy: 100,
   predatorStartEnergy: 60,
   predatorEnergyDecayPerSec: 2.0,
   predatorEnergyPerKill: 55,
-  predatorEatCooldownSec: 1.4,
+  // No max-energy cap and no eat cooldown — predators can chain kills and
+  // accumulate reserves freely.
 
   // UI fade behaviour (configurable via the "config" popup slider).
   uiAutohideThreshold: 95,          // slider %; above this, auto-hide kicks in

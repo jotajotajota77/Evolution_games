@@ -126,7 +126,9 @@ export function drawPredators(world) {
   p.noStroke();
   for (const pr of world.predators) {
     if (!pr.alive) continue;
-    const energyAlpha = 200 + Math.min(55, (pr.energy / CONFIG.predatorMaxEnergy) * 55);
+    // Predator energy has no upper bound, so we just floor the alpha at a
+    // visible level and clamp the upper end.
+    const energyAlpha = 200 + Math.min(55, Math.max(0, pr.energy) / 100 * 55);
     ctx.shadowColor = 'rgba(255, 90, 100, 0.95)';
     p.fill(255, 90, 100, energyAlpha);
     p.circle(pr.x, pr.y, CONFIG.predatorRadius * 2);

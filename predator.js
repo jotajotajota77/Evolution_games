@@ -21,7 +21,6 @@ export class Predator {
     this.ageSec = 0;
     this.alive = true;
     this.causeOfDeath = null;
-    this.eatCooldownSec = 0;
     // Marker used by region helpers + sensor code.
     this.lineageId = PREDATOR_LINEAGE_ID;
     this.isPredator = true;
@@ -30,7 +29,6 @@ export class Predator {
   update(dtSec, world) {
     if (!this.alive) return;
     this.ageSec += dtSec;
-    if (this.eatCooldownSec > 0) this.eatCooldownSec = Math.max(0, this.eatCooldownSec - dtSec);
 
     // --- Targeting: nearest live organism within sense range.
     const target = nearestPrey(this, world);
@@ -74,20 +72,17 @@ export class Predator {
     // House + no-predator-zone bouncing.
     world.enforcePredatorBounds(this);
 
-    // --- Attack: closest live organism within eat radius dies.
-    if (this.eatCooldownSec === 0) {
-      const er2 = CONFIG.predatorEatRadius * CONFIG.predatorEatRadius;
-      for (const o of world.organisms) {
-        if (!o.alive) continue;
-        const ddx = o.x - this.x;
-        const ddy = o.y - this.y;
-        if (ddx * ddx + ddy * ddy < er2) {
-          o.alive = false;
-          o.causeOfDeath = 'predation';
-          this.energy = Math.min(CONFIG.predatorMaxEnergy, this.energy + CONFIG.predatorEnergyPerKill);
-          this.eatCooldownSec = CONFIG.predatorEatCooldownSec;
-          break;
-        }
+    // --- Attack: every live organism within eat radius dies on this tick.
+    //     No cooldown, no energy cap — kills stack directly into reserves.
+    const er2 = CONFIG.predatorEatRadius * CONFIG.predatorEatRadius;
+    for (const o of world.organisms) {
+      if (!o.alive) continue;
+      const ddx = o.x - this.x;
+      const ddy = o.y - this.y;
+      if (ddx * ddx + ddy * ddy < er2) {
+        o.alive = false;
+        o.causeOfDeath = 'predation';
+        this.energy += CONFIG.predatorEnergyPerKill;
       }
     }
 
