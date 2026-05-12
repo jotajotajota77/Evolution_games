@@ -118,23 +118,31 @@ export class Organism {
   // and returns a slightly-mutated descendant with the parent's lineage.
   spawnChild() {
     this.energy *= 0.5;
-    const childBrain = this.brain.clone();
-    childBrain.mutate(CONFIG.mutationRate, CONFIG.mutationSigma);
 
     const offsetAngle = Math.random() * Math.PI * 2;
     const offsetDist = Math.random() * CONFIG.childOffsetMax;
     const cx = this.x + Math.cos(offsetAngle) * offsetDist;
     const cy = this.y + Math.sin(offsetAngle) * offsetDist;
 
-    // Inherit + drift. Each channel gets an independent gaussian nudge,
-    // clamped so colour stays recognisable as a variant of the lineage.
-    const sig = CONFIG.colorDriftSigma;
-    const mx = CONFIG.colorDriftMax;
-    const drift = [
-      clampDrift(this.colorDrift[0] + gaussianRandom() * sig, mx),
-      clampDrift(this.colorDrift[1] + gaussianRandom() * sig, mx),
-      clampDrift(this.colorDrift[2] + gaussianRandom() * sig, mx),
-    ];
+    // The parent (this) keeps its brain untouched — it's effectively the
+    // "unmutated daughter" that preserves the well-adapted genome. The new
+    // child either inherits an exact clone OR a mutated copy, depending on
+    // the per-birth mutation gate. Colour drift mirrors mutation: an exact
+    // clone keeps the same colour drift, a mutated child accumulates a step.
+    const childBrain = this.brain.clone();
+    let drift;
+    if (Math.random() < CONFIG.mutationEventChance) {
+      childBrain.mutate(CONFIG.mutationRate, CONFIG.mutationSigma);
+      const sig = CONFIG.colorDriftSigma;
+      const mx = CONFIG.colorDriftMax;
+      drift = [
+        clampDrift(this.colorDrift[0] + gaussianRandom() * sig, mx),
+        clampDrift(this.colorDrift[1] + gaussianRandom() * sig, mx),
+        clampDrift(this.colorDrift[2] + gaussianRandom() * sig, mx),
+      ];
+    } else {
+      drift = [this.colorDrift[0], this.colorDrift[1], this.colorDrift[2]];
+    }
 
     const child = new Organism(cx, cy, this.lineageId, childBrain, drift);
     child.energy = this.energy;

@@ -1020,6 +1020,18 @@ function setupBottomBar() {
     setTransparency(v);
   });
 
+  // Settings: mutation chance slider — writes CONFIG.mutationEventChance
+  // live so the next reproduction event sees the new value.
+  const mutSlider = document.getElementById('mutation-chance');
+  const mutValueEl = document.getElementById('mutation-chance-value');
+  mutSlider.value = Math.round(CONFIG.mutationEventChance * 100);
+  mutValueEl.textContent = `${mutSlider.value}%`;
+  mutSlider.addEventListener('input', () => {
+    const v = parseInt(mutSlider.value, 10);
+    mutValueEl.textContent = `${v}%`;
+    CONFIG.mutationEventChance = v / 100;
+  });
+
   // Dismiss popups on outside click — but only after the click finishes
   // (otherwise the very click that opens a popup also closes it).
   document.addEventListener('pointerdown', (e) => {

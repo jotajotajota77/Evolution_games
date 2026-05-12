@@ -82,6 +82,13 @@
       </div>
       <div class="popup-hint">above 95% the ui auto-hides; tap the screen to peek</div>
 
+      <div class="popup-title">mutation chance</div>
+      <div class="slider-row">
+        <input type="range" id="mutation-chance" min="0" max="100" step="1" value="100" />
+        <span class="slider-value" id="mutation-chance-value">100%</span>
+      </div>
+      <div class="popup-hint">chance the child of a reproduction event is mutated. otherwise it's an exact clone (the mother's genome is preserved).</div>
+
       <div class="popup-title">install</div>
       <button class="popup-item" id="btn-install" hidden>install as app</button>
       <div class="popup-hint" id="install-hint">on chrome / edge an install option will appear here once the browser is ready. on iOS use share → add to home screen.</div>

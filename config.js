@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.21',
+  version: 'v1.22',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -70,8 +70,13 @@ export const CONFIG = {
   // Reproduction (asexual, via NN intent + energy threshold)
   reproductionEnergyThresh: 0.8,    // fraction of organismMaxEnergy
   reproductionIntentThresh: 0.6,    // sigmoid output threshold
-  mutationRate: 0.06,               // probability per weight
+  mutationRate: 0.06,               // probability per weight (when a birth IS mutated)
   mutationSigma: 0.18,              // gaussian std-dev for mutation
+  // Per-birth mutation gate. 1.0 = every child gets weight mutations (current
+  // default). 0.0 = no child ever mutates (pure clone). Tunable live from
+  // the settings popup. When the gate doesn't trigger the child is also
+  // skipped from colour-drift accumulation — drift only happens with mutation.
+  mutationEventChance: 1.0,
   maxPopulation: 400,               // hard cap; reproduction blocked at cap
   childOffsetMax: 6,                // px from parent on birth
 
