@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { deriveChildName } from './names.js';
 
 let nextSpeciesId = 1;
 
@@ -10,7 +11,7 @@ export function ensureNextSpeciesId(min) {
 // species; speciation events spawn two child species and mark the parent's
 // diedTick (its living organisms get reassigned to children).
 export class PhyloSpecies {
-  constructor(id, parentId, lineageId, color, bornTick) {
+  constructor(id, parentId, lineageId, color, bornTick, name = '?') {
     this.id = id;
     this.parentId = parentId;
     this.lineageId = lineageId;
@@ -19,6 +20,7 @@ export class PhyloSpecies {
     this.diedTick = null;
     this.peakPop = 0;
     this.currentPop = 0;
+    this.name = name;
   }
 }
 
@@ -33,7 +35,7 @@ export class Phylo {
   }
 
   initLineageRoot(lineage, tickSec) {
-    const s = new PhyloSpecies(nextSpeciesId++, null, lineage.id, lineage.color, tickSec);
+    const s = new PhyloSpecies(nextSpeciesId++, null, lineage.id, lineage.color, tickSec, lineage.name);
     this.species.push(s);
     this.lineageRoots.set(lineage.id, s.id);
     return s.id;
@@ -147,7 +149,10 @@ export class Phylo {
       clamp255(base[1] + cy),
       clamp255(base[2] + cz),
     ];
-    const s = new PhyloSpecies(nextSpeciesId++, parent.id, parent.lineageId, color, tickSec);
+    const s = new PhyloSpecies(
+      nextSpeciesId++, parent.id, parent.lineageId, color, tickSec,
+      deriveChildName(parent.name),
+    );
     s.currentPop = orgs.length;
     s.peakPop = orgs.length;
     this.species.push(s);

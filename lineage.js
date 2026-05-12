@@ -1,4 +1,5 @@
 import { CONFIG } from './config.js';
+import { randomBinomial } from './names.js';
 
 // id=0 is reserved for the auto-seeded default lineage from earlier phases.
 let nextLineageId = 1;
@@ -35,12 +36,11 @@ export function suggestNextLineageDefaults(existingLineages) {
   for (let i = 0; i < CONFIG.lineagePalette.length; i++) {
     const entry = CONFIG.lineagePalette[i];
     if (!usedRgb.has(entry.rgb.join(','))) {
-      return { name: entry.name, color: entry.rgb };
+      return { name: randomBinomial(), color: entry.rgb };
     }
   }
   // All palette colours used — recycle the first.
-  const fallback = CONFIG.lineagePalette[0];
-  return { name: fallback.name, color: fallback.rgb };
+  return { name: randomBinomial(), color: CONFIG.lineagePalette[0].rgb };
 }
 
 export function rgbToHex([r, g, b]) {

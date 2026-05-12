@@ -457,60 +457,34 @@ body.erasing #canvas-host canvas { cursor: not-allowed; }
 }
 
 .fw-phylo {
-  display: flex;
-  flex-direction: column;
   height: 100%;
+  width: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 2px;
 }
 
-.fw-phylo::-webkit-scrollbar { width: 6px; }
-.fw-phylo::-webkit-scrollbar-thumb { background: var(--border-soft); border-radius: 3px; }
+.fw-phylo::-webkit-scrollbar { width: 8px; }
+.fw-phylo::-webkit-scrollbar-track { background: transparent; }
+.fw-phylo::-webkit-scrollbar-thumb { background: var(--border-soft); border-radius: 4px; }
 
-.phylo-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 6px;
-  font-size: 10.5px;
-  letter-spacing: 0.02em;
-  border-radius: 3px;
-  color: var(--text-dim);
-  line-height: 1.4;
+.fw-phylo svg {
+  display: block;
+  width: 100%;
 }
 
-.phylo-row:hover { background: rgba(30, 30, 46, 0.4); }
-
-.phylo-row.extinct {
-  opacity: 0.45;
-  font-style: italic;
-}
-
-.phylo-swatch {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  flex: 0 0 auto;
-  box-shadow: 0 0 4px currentColor;
-}
-
-.phylo-name {
-  flex: 1;
-  color: var(--text);
-}
-
-.phylo-pop {
-  color: var(--text-mute);
-  font-size: 9.5px;
+.fw-phylo svg text {
+  pointer-events: none;
+  user-select: none;
 }
 
 .phylo-empty {
   text-align: center;
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--text-mute);
   font-style: italic;
-  padding: 18px 8px;
-  line-height: 1.5;
+  padding: 22px 12px;
+  line-height: 1.6;
 }
 
 .fw-stat {

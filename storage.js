@@ -88,6 +88,7 @@ function serialize(w) {
         color: [...s.color],
         bornTick: s.bornTick, diedTick: s.diedTick,
         peakPop: s.peakPop, currentPop: s.currentPop,
+        name: s.name,
       })),
       lineageRoots: [...w.phylo.lineageRoots.entries()],
     },
@@ -164,7 +165,7 @@ function deserialize(d) {
     w.phylo = new Phylo();
     let maxSpeciesId = 0;
     for (const sd of d.phylo.species || []) {
-      const s = new PhyloSpecies(sd.id, sd.parentId, sd.lineageId, sd.color, sd.bornTick);
+      const s = new PhyloSpecies(sd.id, sd.parentId, sd.lineageId, sd.color, sd.bornTick, sd.name || '?');
       s.diedTick = sd.diedTick ?? null;
       s.peakPop = sd.peakPop || 0;
       s.currentPop = sd.currentPop || 0;

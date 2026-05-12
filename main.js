@@ -417,37 +417,60 @@ const chartFactories = {
       return { chart: null, update };
     },
   }),
-  phylo: () => ({
-    title: 'phylogeny',
-    width: 360,
-    height: 380,
-    factory: (host) => {
-      host.innerHTML = '<div class="fw-phylo"></div>';
-      const listEl = host.querySelector('.fw-phylo');
-      const update = () => renderPhyloTree(listEl);
-      update();
-      return { chart: null, update };
-    },
-  }),
+  phylo: () => {
+    // The phylogeny tree needs room to breathe — open near-fullscreen,
+    // centred. The user can still drag or close it.
+    const w = Math.min(1280, Math.max(540, window.innerWidth - 40));
+    const h = Math.min(820, Math.max(360, window.innerHeight - 120));
+    return {
+      title: 'phylogeny tree',
+      width: w,
+      height: h,
+      x: Math.max(8, (window.innerWidth - w) / 2),
+      y: Math.max(8, (window.innerHeight - h - 80) / 2),
+      factory: (host) => {
+        host.innerHTML = '<div class="fw-phylo"></div>';
+        const treeEl = host.querySelector('.fw-phylo');
+        const update = () => renderPhyloTree(treeEl);
+        update();
+        return { chart: null, update };
+      },
+    };
+  },
 };
 
-// Phylogeny tree — DOM list with indentation per depth. Filters out species
-// that never reached the configured minimum peak population, so spurious
-// split events don't pollute the visible tree.
+// Phylogeny tree, rendered as an SVG horizontal tree:
+//   - X axis is time. Root at the species' bornTick, line ends at diedTick
+//     (split point) or at the current sim time (alive species).
+//   - Y axis is layout-driven: each leaf gets its own row, internal nodes
+//     sit at the mean Y of their children. Multiple lineages stack with a
+//     small gap between them.
+//   - Lines are coloured by the species colour; a vertical connector at
+//     each split joins the parent's terminus to the children's rows.
+//   - Tip circle + label sits at the right end of each line. Extinct
+//     branches dim + go italic.
+// Filters species below CONFIG.phyloMinDisplayPeakPop so spurious blips
+// don't crowd the chart (roots always shown).
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
 function renderPhyloTree(host) {
   const w = state.world;
   if (!w || !w.phylo) return;
 
   const visible = w.phylo.species.filter((s) =>
     s.peakPop >= CONFIG.phyloMinDisplayPeakPop || s.parentId == null);
+
+  host.innerHTML = '';
   if (visible.length === 0) {
-    host.innerHTML = '<div class="phylo-empty">no species yet — place a house to seed one.</div>';
+    const empty = document.createElement('div');
+    empty.className = 'phylo-empty';
+    empty.textContent = 'no species yet — place a house to seed one.';
+    host.appendChild(empty);
     return;
   }
 
-  // Build child map.
-  const childrenOf = new Map();
   const visibleSet = new Set(visible.map((s) => s.id));
+  const childrenOf = new Map();
   const roots = [];
   for (const s of visible) {
     if (s.parentId == null || !visibleSet.has(s.parentId)) {
@@ -457,48 +480,156 @@ function renderPhyloTree(host) {
       childrenOf.get(s.parentId).push(s);
     }
   }
+  for (const arr of childrenOf.values()) arr.sort((a, b) => a.bornTick - b.bornTick);
   roots.sort((a, b) => a.lineageId - b.lineageId || a.bornTick - b.bornTick);
 
-  host.innerHTML = '';
-
-  const tick = w.tickSec;
-  function append(species, depth) {
-    const lin = w.lineages.get(species.lineageId);
-    const linName = lin ? lin.name : '?';
-    const row = document.createElement('div');
-    row.className = 'phylo-row';
-    if (species.diedTick != null) row.classList.add('extinct');
-    row.style.paddingLeft = `${depth * 14 + 8}px`;
-
-    const swatch = document.createElement('span');
-    swatch.className = 'phylo-swatch';
-    swatch.style.background = `rgb(${species.color[0]}, ${species.color[1]}, ${species.color[2]})`;
-
-    const label = document.createElement('span');
-    label.className = 'phylo-name';
-    const tag = species.parentId == null ? '·root' : '';
-    label.textContent = `${linName}${tag}`;
-
-    const stat = document.createElement('span');
-    stat.className = 'phylo-pop';
-    if (species.diedTick != null) {
-      const lifespan = Math.max(0, Math.floor(species.diedTick - species.bornTick));
-      stat.textContent = `× ${lifespan}s · peak ${species.peakPop}`;
-    } else {
-      const age = Math.max(0, Math.floor(tick - species.bornTick));
-      stat.textContent = `${species.currentPop} · ${age}s`;
+  // DFS Y assignment: leaves consume integer slots; internals get the mean
+  // of their children's slots.
+  const yPos = new Map();
+  let nextLeaf = 0;
+  function dfs(node) {
+    const kids = childrenOf.get(node.id) || [];
+    if (kids.length === 0) {
+      const my = nextLeaf++;
+      yPos.set(node.id, my);
+      return my;
     }
-
-    row.appendChild(swatch);
-    row.appendChild(label);
-    row.appendChild(stat);
-    host.appendChild(row);
-
-    const kids = childrenOf.get(species.id) || [];
-    kids.sort((a, b) => a.bornTick - b.bornTick);
-    for (const c of kids) append(c, depth + 1);
+    const ys = kids.map(dfs);
+    const my = (ys[0] + ys[ys.length - 1]) / 2;
+    yPos.set(node.id, my);
+    return my;
   }
-  for (const r of roots) append(r, 0);
+  for (const r of roots) {
+    dfs(r);
+    nextLeaf += 0.6; // breathing room between independent lineages
+  }
+  const totalLeaves = Math.max(1, nextLeaf);
+
+  // Time window — clamp so a single, fresh root still produces a sensible
+  // axis even when bornTick == tickSec.
+  let minT = Infinity, maxT = w.tickSec;
+  for (const s of visible) {
+    if (s.bornTick < minT) minT = s.bornTick;
+    const end = s.diedTick ?? w.tickSec;
+    if (end > maxT) maxT = end;
+  }
+  if (minT === Infinity) minT = 0;
+  if (maxT - minT < 1) maxT = minT + 1;
+
+  // Compute size — SVG height grows past the container if many leaves so
+  // the host scrolls vertically.
+  const containerW = Math.max(220, host.clientWidth || 600);
+  const containerH = Math.max(160, host.clientHeight || 400);
+  const padLeft = 18;
+  const padRight = 210;
+  const padTop = 28;
+  const padBottom = 20;
+  const minLeafSpacing = 26;
+  const innerW = Math.max(120, containerW - padLeft - padRight);
+  const neededH = totalLeaves * minLeafSpacing + padTop + padBottom;
+  const svgH = Math.max(containerH, neededH);
+  const innerH = svgH - padTop - padBottom;
+  const ySpacing = innerH / totalLeaves;
+
+  const yScale = (yv) => padTop + yv * ySpacing + ySpacing / 2;
+  const xScale = (t) => padLeft + ((t - minT) / (maxT - minT)) * innerW;
+
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('height', svgH);
+  svg.setAttribute('viewBox', `0 0 ${containerW} ${svgH}`);
+  svg.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+
+  // Axis hint — light tick label every ~60 seconds.
+  const tickStep = chooseTickStep(maxT - minT);
+  for (let t = Math.ceil(minT / tickStep) * tickStep; t <= maxT; t += tickStep) {
+    const x = xScale(t);
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', x); line.setAttribute('x2', x);
+    line.setAttribute('y1', padTop - 6); line.setAttribute('y2', svgH - padBottom + 6);
+    line.setAttribute('stroke', 'rgba(255,255,255,0.04)');
+    line.setAttribute('stroke-dasharray', '2 4');
+    svg.appendChild(line);
+    const label = document.createElementNS(SVG_NS, 'text');
+    label.setAttribute('x', x + 2);
+    label.setAttribute('y', padTop - 8);
+    label.setAttribute('fill', 'rgba(180,180,200,0.45)');
+    label.setAttribute('font-size', '9');
+    label.setAttribute('font-family', 'JetBrains Mono');
+    label.textContent = `${Math.round(t)}s`;
+    svg.appendChild(label);
+  }
+
+  const rgba = (c, a = 1) => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${a})`;
+
+  // Vertical connectors first so they sit under horizontal lines.
+  for (const s of visible) {
+    const kids = childrenOf.get(s.id) || [];
+    if (kids.length < 2) continue;
+    const px = xScale(s.diedTick ?? w.tickSec);
+    let yMin = Infinity, yMax = -Infinity;
+    for (const k of kids) {
+      const ky = yScale(yPos.get(k.id));
+      if (ky < yMin) yMin = ky;
+      if (ky > yMax) yMax = ky;
+    }
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('x1', px); line.setAttribute('x2', px);
+    line.setAttribute('y1', yMin); line.setAttribute('y2', yMax);
+    line.setAttribute('stroke', rgba(s.color, 0.55));
+    line.setAttribute('stroke-width', 1.8);
+    line.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(line);
+  }
+
+  // Branches + tips.
+  for (const s of visible) {
+    const extinct = s.diedTick != null;
+    const y = yScale(yPos.get(s.id));
+    const x1 = xScale(s.bornTick);
+    const x2 = xScale(s.diedTick ?? w.tickSec);
+
+    const seg = document.createElementNS(SVG_NS, 'line');
+    seg.setAttribute('x1', x1); seg.setAttribute('y1', y);
+    seg.setAttribute('x2', x2); seg.setAttribute('y2', y);
+    seg.setAttribute('stroke', rgba(s.color, extinct ? 0.45 : 1));
+    seg.setAttribute('stroke-width', extinct ? 1.8 : 3);
+    seg.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(seg);
+
+    const tip = document.createElementNS(SVG_NS, 'circle');
+    tip.setAttribute('cx', x2); tip.setAttribute('cy', y);
+    tip.setAttribute('r', extinct ? 3.5 : 6);
+    tip.setAttribute('fill', rgba(s.color, extinct ? 0.4 : 1));
+    if (!extinct) {
+      tip.setAttribute('stroke', rgba(s.color, 1));
+      tip.setAttribute('stroke-width', 1.5);
+    }
+    svg.appendChild(tip);
+
+    const label = document.createElementNS(SVG_NS, 'text');
+    label.setAttribute('x', x2 + 11);
+    label.setAttribute('y', y + 3.5);
+    label.setAttribute('fill', extinct ? 'rgba(180,180,200,0.45)' : '#e6e6f0');
+    label.setAttribute('font-size', '11');
+    label.setAttribute('font-family', 'JetBrains Mono');
+    if (extinct) label.setAttribute('font-style', 'italic');
+    const stat = extinct
+      ? ` × ${Math.max(0, Math.floor(s.diedTick - s.bornTick))}s`
+      : `  ${s.currentPop}`;
+    label.textContent = `${s.name}${stat}`;
+    svg.appendChild(label);
+  }
+
+  host.appendChild(svg);
+}
+
+function chooseTickStep(rangeSec) {
+  if (rangeSec <= 30) return 5;
+  if (rangeSec <= 120) return 20;
+  if (rangeSec <= 360) return 60;
+  if (rangeSec <= 1200) return 120;
+  return 300;
 }
 
 // Finds the longest-lived currently-alive organism per lineage and renders a
@@ -640,8 +771,8 @@ function openChartWindow(key) {
     title: spec.title,
     width: spec.width || 380,
     height: spec.height || 220,
-    x: 80 + stagger * 32,
-    y: 90 + stagger * 32,
+    x: spec.x !== undefined ? spec.x : 80 + stagger * 32,
+    y: spec.y !== undefined ? spec.y : 90 + stagger * 32,
     onOpen: (host, w) => {
       const { chart, update } = spec.factory(host);
       openCharts.set(key, { window: w, chart, update });
