@@ -1,10 +1,11 @@
 let nextHouseId = 1;
 
 // A house combines a circular zone (alters food density + energy decay locally)
-// with an automatic circular barrier (visual only in phase 3; permeable to
-// the house's lineage and enforced in phase 6 onward).
+// with an automatic circular barrier permeable to the lineages listed in
+// `allowedLineages`. Organisms whose lineage isn't allowed bounce off the
+// perimeter and lose a small amount of energy on contact.
 export class House {
-  constructor(x, y, radius, lineageId, zoneConfig, barrierConfig) {
+  constructor(x, y, radius, lineageId, zoneConfig, barrierConfig, allowedLineages) {
     this.id = nextHouseId++;
     this.x = x;
     this.y = y;
@@ -12,7 +13,15 @@ export class House {
     this.lineageId = lineageId;
     this.zone = { ...zoneConfig };
     this.barrier = { ...barrierConfig };
+    // Always allow the home lineage. Extra lineages may be added by the user
+    // through the placement modal.
+    this.allowedLineages = new Set(allowedLineages || []);
+    this.allowedLineages.add(lineageId);
     this.foodSpawnAccumulator = 0;
+  }
+
+  isAllowed(lineageId) {
+    return this.allowedLineages.has(lineageId);
   }
 
   contains(x, y) {

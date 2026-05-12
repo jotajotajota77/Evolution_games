@@ -58,6 +58,9 @@ export class Organism {
     if (this.y < 0) { this.y = 0; this.heading = -this.heading; }
     else if (this.y > world.height) { this.y = world.height; this.heading = -this.heading; }
 
+    // 4b. Bounce out of any zone the lineage isn't allowed into.
+    world.enforceZoneAccess(this);
+
     // 5. Eat anything within reach. Each pellet carries the energy value of
     //    the zone it spawned in, so house-grown food can be more nutritious.
     const food = world.nearestFood(this.x, this.y, CONFIG.organismEatRadius);

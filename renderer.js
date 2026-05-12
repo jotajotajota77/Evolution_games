@@ -115,6 +115,23 @@ export function drawVignette() {
   p.image(vignetteGfx, 0, 0);
 }
 
+// Per-frame dim layer driven by daylight (0..1). Drawn AFTER the entities
+// and the vignette so it darkens everything uniformly — including the
+// organism glows — for an unmistakable "it is night" feel.
+export function drawNightTint(daylight) {
+  if (!p) return;
+  const night = 1 - daylight;
+  if (night <= 0.02) return;
+  // Quadratic ramp so dusk/dawn are gentle but midnight is heavy.
+  const k = night * night;
+  const alpha = Math.min(255, k * CONFIG.nightDimAlpha * 255);
+  p.noStroke();
+  p.drawingContext.shadowBlur = 0;
+  // Slight blue tint so the night reads as "deep night" rather than dead grey.
+  p.fill(2, 4, 14, alpha);
+  p.rect(0, 0, p.width, p.height);
+}
+
 // Call once on first frame to lay down the deep background under the trail layer.
 export function paintBackground(rgb = CONFIG.worldBgDay) {
   if (!p) return;

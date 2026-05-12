@@ -3,12 +3,18 @@ import { rgbToHex, hexToRgb } from './lineage.js';
 import { setModalOpen } from './tools.js';
 
 // Opens the new-house modal pre-filled with suggested defaults. On confirm,
-// invokes onConfirm with the parsed form data (including [r,g,b] color).
-// On cancel, invokes onCancel.
-export function showHouseModal(suggested, onConfirm, onCancel) {
+// invokes onConfirm with the parsed form data (including [r,g,b] color and
+// the Set of extra-allowed lineage ids). On cancel, invokes onCancel.
+//
+// `existingLineages` is an iterable of Lineage objects already in the world.
+// One checkbox per existing lineage is rendered in the "access" section.
+// The lineage being created is always implicitly allowed by the caller.
+export function showHouseModal(suggested, existingLineages, onConfirm, onCancel) {
   const backdrop = document.getElementById('modal-backdrop');
   const form = document.getElementById('house-form');
   const d = CONFIG.houseDefaults;
+
+  renderAccessList([...existingLineages]);
 
   form.elements['name'].value = suggested.name || '';
   form.elements['color'].value = rgbToHex(suggested.color || [127, 169, 255]);
@@ -27,6 +33,9 @@ export function showHouseModal(suggested, onConfirm, onCancel) {
 
   const submit = (e) => {
     e.preventDefault();
+    const allowedLineages = new Set();
+    document.querySelectorAll('#access-list input[type="checkbox"]:checked')
+      .forEach((cb) => allowedLineages.add(parseInt(cb.dataset.lineageId, 10)));
     const data = {
       name: form.elements['name'].value.trim() || suggested.name || 'unnamed',
       color: hexToRgb(form.elements['color'].value),
@@ -37,6 +46,7 @@ export function showHouseModal(suggested, onConfirm, onCancel) {
       predatorsAllowed: form.elements['predatorsAllowed'].checked,
       transparentFromInside: form.elements['transFromInside'].checked,
       transparentFromOutside: form.elements['transFromOutside'].checked,
+      allowedLineages,
     };
     cleanup();
     onConfirm(data);
@@ -58,6 +68,34 @@ export function showHouseModal(suggested, onConfirm, onCancel) {
 
   form.addEventListener('submit', submit);
   cancelBtn.addEventListener('click', cancel);
+}
+
+function renderAccessList(lineages) {
+  const host = document.getElementById('access-list');
+  host.innerHTML = '';
+  if (lineages.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'access-empty';
+    empty.textContent = 'no other lineages yet — this house will be exclusive.';
+    host.appendChild(empty);
+    return;
+  }
+  for (const lin of lineages) {
+    const row = document.createElement('label');
+    row.className = 'access-row';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.dataset.lineageId = String(lin.id);
+    const swatch = document.createElement('span');
+    swatch.className = 'access-swatch';
+    swatch.style.background = `rgb(${lin.color[0]}, ${lin.color[1]}, ${lin.color[2]})`;
+    const name = document.createElement('span');
+    name.textContent = lin.name;
+    row.appendChild(cb);
+    row.appendChild(swatch);
+    row.appendChild(name);
+    host.appendChild(row);
+  }
 }
 
 function clampInt(v, lo, hi, fallback) {

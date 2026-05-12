@@ -1,13 +1,15 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.6',
+  version: 'v1.7',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
-  worldBgDay:   [12, 16, 28],
-  worldBgNight: [6, 8, 16],         // used in phase 4
-  trailFade:    'rgba(10, 10, 20, 0.15)', // overlay per frame to leave organism trails
+  // Sky colors at noon vs midnight — exaggerated for a clear day/night feel.
+  worldBgDay:   [22, 32, 56],
+  worldBgNight: [2, 3, 9],
+  trailFade:    'rgba(10, 10, 20, 0.15)', // legacy; renderer uses sky color now
+  nightDimAlpha: 0.55,               // strength of per-frame night overlay at midnight
 
   // Time / loop
   targetFps: 60,
@@ -102,6 +104,11 @@ export const CONFIG = {
   // Placement tool constraints.
   houseMinRadius: 30,
   houseMaxRadius: 220,
+
+  // Energy lost on collision with a zone the organism's lineage isn't
+  // allowed into. Small enough that occasional bumps don't kill, big
+  // enough to discourage pressing against the boundary.
+  barrierHitEnergyCost: 0.6,
 
   // UI fade behaviour (configurable via the "config" popup slider).
   uiAutohideThreshold: 95,          // slider %; above this, auto-hide kicks in

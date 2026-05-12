@@ -3,7 +3,7 @@ import { World } from './world.js';
 import {
   attachP5, rebuildVignette, drawTrailFade,
   drawFood, drawOrganisms, drawHouses, drawHousePreview,
-  drawVignette, paintBackground,
+  drawVignette, drawNightTint, paintBackground,
 } from './renderer.js';
 import { createLineage, suggestNextLineageDefaults } from './lineage.js';
 import { House } from './house.js';
@@ -85,6 +85,7 @@ const sketch = (p) => {
     drawOrganisms(state.world);
     drawHousePreview(getDrag());
     drawVignette();
+    drawNightTint(state.world.daylight);
   };
 };
 
@@ -612,12 +613,15 @@ function setupToolbar() {
 function handlePlaceHouse(x, y, radius) {
   const w = state.world;
   const suggested = suggestNextLineageDefaults(w.lineages.values());
+  const existingLineages = [...w.lineages.values()];
   showHouseModal(
     suggested,
+    existingLineages,
     (data) => {
       const lineage = createLineage(data.name, data.color);
       w.addLineage(lineage);
-      const house = new House(x, y, radius, lineage.id,
+      const house = new House(
+        x, y, radius, lineage.id,
         {
           foodDensity: data.foodDensity,
           foodEnergy: data.foodEnergy,
@@ -628,6 +632,7 @@ function handlePlaceHouse(x, y, radius) {
           transparentFromInside: data.transparentFromInside,
           transparentFromOutside: data.transparentFromOutside,
         },
+        data.allowedLineages, // extra lineages the user ticked; new one is added by House
       );
       w.addHouse(house);
       w.seedFoundersForHouse(house, data.founders);

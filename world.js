@@ -142,6 +142,30 @@ export class World {
     return null;
   }
 
+  // Pushes an organism out of any zone whose access list excludes its lineage.
+  // Called from organism.update after movement; the barrier is enforced as a
+  // hard collision (project to perimeter, deflect heading outward, small
+  // energy penalty).
+  enforceZoneAccess(org) {
+    for (let i = 0; i < this.houses.length; i++) {
+      const h = this.houses[i];
+      if (h.isAllowed(org.lineageId)) continue;
+      const dx = org.x - h.x;
+      const dy = org.y - h.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq >= h.radius * h.radius) continue;
+      const dist = Math.sqrt(distSq) || 0.0001;
+      // Project outward to just past the perimeter so we don't get re-trapped
+      // on the next frame by floating-point error.
+      const push = (h.radius - dist) + 0.5;
+      org.x += (dx / dist) * push;
+      org.y += (dy / dist) * push;
+      // Deflect heading to point straight away from the zone centre.
+      org.heading = Math.atan2(dy, dx);
+      org.energy -= CONFIG.barrierHitEnergyCost;
+    }
+  }
+
   // Decay multiplier at a point. With overlapping zones the most recently
   // placed house wins (last writer); documented as the convention.
   zoneDecayMultiplierAt(x, y) {
