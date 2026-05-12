@@ -15,6 +15,25 @@ function hideBackdrop() {
   setModalOpen(false);
 }
 
+// Switches a modal between "create" and "edit" labels and hides any
+// .create-only rows when editing. Inputs use data-h2-* and data-hint-*
+// attributes to swap heading + hint text.
+function setModalMode(modalEl, mode, primaryBtnText) {
+  modalEl.classList.toggle('mode-edit', mode === 'edit');
+  const h2 = modalEl.querySelector('h2');
+  if (h2) {
+    const t = mode === 'edit' ? h2.dataset.h2Edit : h2.dataset.h2Create;
+    if (t) h2.textContent = t;
+  }
+  const hint = modalEl.querySelector('.modal-hint');
+  if (hint) {
+    const t = mode === 'edit' ? hint.dataset.hintEdit : hint.dataset.hintCreate;
+    if (t) hint.textContent = t;
+  }
+  const primary = modalEl.querySelector('.btn-primary');
+  if (primary && primaryBtnText) primary.textContent = primaryBtnText;
+}
+
 // Opens the new-house modal pre-filled with suggested defaults. On confirm,
 // invokes onConfirm with the parsed form data (including [r,g,b] color and
 // the Set of extra-allowed lineage ids). On cancel, invokes onCancel.
@@ -22,25 +41,47 @@ function hideBackdrop() {
 // `existingLineages` is an iterable of Lineage objects already in the world.
 // One checkbox per existing lineage is rendered in the "access" section.
 // The lineage being created is always implicitly allowed by the caller.
-export function showHouseModal(suggested, existingLineages, onConfirm, onCancel) {
+export function showHouseModal(suggested, existingLineages, onConfirm, onCancel, editing = null) {
+  const modalEl = document.getElementById('house-modal');
   const form = document.getElementById('house-form');
   const d = CONFIG.houseDefaults;
+  const mode = editing ? 'edit' : 'create';
+  setModalMode(modalEl, mode, editing ? 'save' : 'create');
 
-  renderAccessList('access-list', [...existingLineages]);
+  // Edit mode lists every lineage EXCEPT the home one (which is always
+  // allowed by construction). Pre-tick the lineages already in the set.
+  const homeLin = editing ? existingLineages.find((l) => l.id === editing.lineageId) : null;
+  const accessLineages = editing
+    ? [...existingLineages].filter((l) => l.id !== editing.lineageId)
+    : [...existingLineages];
+  renderAccessList('access-list', accessLineages, editing ? editing.allowedLineages : null);
 
-  form.elements['name'].value = suggested.name || '';
-  form.elements['color'].value = rgbToHex(suggested.color || [127, 169, 255]);
-  form.elements['founders'].value = d.founders;
-  form.elements['foodDensity'].value = d.foodDensity;
-  form.elements['foodEnergy'].value = d.foodEnergy;
-  form.elements['decayMult'].value = d.decayMultiplier;
-  form.elements['predatorsAllowed'].checked = d.predatorsAllowed;
-  form.elements['transFromInside'].checked = d.transparentFromInside;
-  form.elements['transFromOutside'].checked = d.transparentFromOutside;
+  if (editing) {
+    form.elements['name'].value = homeLin ? homeLin.name : '';
+    form.elements['color'].value = rgbToHex(homeLin ? homeLin.color : [127, 169, 255]);
+    form.elements['founders'].value = d.founders; // unused in edit
+    form.elements['foodDensity'].value = editing.zone.foodDensity;
+    form.elements['foodEnergy'].value = editing.zone.foodEnergy;
+    form.elements['decayMult'].value = editing.zone.decayMultiplier;
+    form.elements['predatorsAllowed'].checked = !!editing.zone.predatorsAllowed;
+    form.elements['transFromInside'].checked = !!editing.barrier.transparentFromInside;
+    form.elements['transFromOutside'].checked = !!editing.barrier.transparentFromOutside;
+  } else {
+    form.elements['name'].value = suggested.name || '';
+    form.elements['color'].value = rgbToHex(suggested.color || [127, 169, 255]);
+    form.elements['founders'].value = d.founders;
+    form.elements['foodDensity'].value = d.foodDensity;
+    form.elements['foodEnergy'].value = d.foodEnergy;
+    form.elements['decayMult'].value = d.decayMultiplier;
+    form.elements['predatorsAllowed'].checked = d.predatorsAllowed;
+    form.elements['transFromInside'].checked = d.transparentFromInside;
+    form.elements['transFromOutside'].checked = d.transparentFromOutside;
+  }
 
   showBackdrop('house-modal');
-  // Defer focus so the modal is laid out first (avoids jumpy autoscroll).
-  requestAnimationFrame(() => form.elements['name'].focus());
+  if (!editing) {
+    requestAnimationFrame(() => form.elements['name'].focus());
+  }
 
   const submit = (e) => {
     e.preventDefault();
@@ -82,16 +123,25 @@ export function showHouseModal(suggested, existingLineages, onConfirm, onCancel)
 
 // Opens the new-barrier modal. Allowed lineages start unticked: by default
 // a barrier blocks every lineage.
-export function showBarrierModal(existingLineages, onConfirm, onCancel) {
+export function showBarrierModal(existingLineages, onConfirm, onCancel, editing = null) {
+  const modalEl = document.getElementById('barrier-modal');
   const form = document.getElementById('barrier-form');
   const d = CONFIG.barrierDefaults;
+  setModalMode(modalEl, editing ? 'edit' : 'create', editing ? 'save' : 'create');
 
-  renderAccessList('barrier-access-list', [...existingLineages]);
+  renderAccessList('barrier-access-list', [...existingLineages], editing ? editing.allowedLineages : null);
 
-  form.elements['color'].value = rgbToHex(d.color);
-  form.elements['thickness'].value = d.thickness;
-  form.elements['transFromSideA'].checked = d.transparentFromSideA;
-  form.elements['transFromSideB'].checked = d.transparentFromSideB;
+  if (editing) {
+    form.elements['color'].value = rgbToHex(editing.color);
+    form.elements['thickness'].value = editing.thickness;
+    form.elements['transFromSideA'].checked = !!editing.transparentFromSideA;
+    form.elements['transFromSideB'].checked = !!editing.transparentFromSideB;
+  } else {
+    form.elements['color'].value = rgbToHex(d.color);
+    form.elements['thickness'].value = d.thickness;
+    form.elements['transFromSideA'].checked = d.transparentFromSideA;
+    form.elements['transFromSideB'].checked = d.transparentFromSideB;
+  }
 
   showBackdrop('barrier-modal');
 
@@ -130,17 +180,27 @@ export function showBarrierModal(existingLineages, onConfirm, onCancel) {
 
 // Opens the new-zone modal. Zones have no name/colour-coded lineage; if no
 // access checkboxes are ticked, the zone is open to everyone.
-export function showZoneModal(existingLineages, onConfirm, onCancel) {
+export function showZoneModal(existingLineages, onConfirm, onCancel, editing = null) {
+  const modalEl = document.getElementById('zone-modal');
   const form = document.getElementById('zone-form');
   const d = CONFIG.zoneDefaults;
+  setModalMode(modalEl, editing ? 'edit' : 'create', editing ? 'save' : 'create');
 
-  renderAccessList('zone-access-list', [...existingLineages]);
+  renderAccessList('zone-access-list', [...existingLineages], editing ? editing.allowedLineages : null);
 
-  form.elements['color'].value = rgbToHex(d.color);
-  form.elements['foodDensity'].value = d.foodDensity;
-  form.elements['foodEnergy'].value = d.foodEnergy;
-  form.elements['decayMult'].value = d.decayMultiplier;
-  form.elements['predatorsAllowed'].checked = d.predatorsAllowed;
+  if (editing) {
+    form.elements['color'].value = rgbToHex(editing.color);
+    form.elements['foodDensity'].value = editing.zone.foodDensity;
+    form.elements['foodEnergy'].value = editing.zone.foodEnergy;
+    form.elements['decayMult'].value = editing.zone.decayMultiplier;
+    form.elements['predatorsAllowed'].checked = !!editing.zone.predatorsAllowed;
+  } else {
+    form.elements['color'].value = rgbToHex(d.color);
+    form.elements['foodDensity'].value = d.foodDensity;
+    form.elements['foodEnergy'].value = d.foodEnergy;
+    form.elements['decayMult'].value = d.decayMultiplier;
+    form.elements['predatorsAllowed'].checked = d.predatorsAllowed;
+  }
 
   showBackdrop('zone-modal');
 
@@ -178,13 +238,13 @@ export function showZoneModal(existingLineages, onConfirm, onCancel) {
   cancelBtn.addEventListener('click', cancel);
 }
 
-function renderAccessList(hostId, lineages) {
+function renderAccessList(hostId, lineages, preChecked = null) {
   const host = document.getElementById(hostId);
   host.innerHTML = '';
   if (lineages.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'access-empty';
-    empty.textContent = 'no other lineages yet — this house will be exclusive.';
+    empty.textContent = 'no other lineages yet.';
     host.appendChild(empty);
     return;
   }
@@ -194,6 +254,7 @@ function renderAccessList(hostId, lineages) {
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.dataset.lineageId = String(lin.id);
+    if (preChecked && preChecked.has(lin.id)) cb.checked = true;
     const swatch = document.createElement('span');
     swatch.className = 'access-swatch';
     swatch.style.background = `rgb(${lin.color[0]}, ${lin.color[1]}, ${lin.color[2]})`;

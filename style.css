@@ -137,6 +137,11 @@ html, body {
 }
 
 body.placing #canvas-host canvas { cursor: crosshair; }
+body.editing #canvas-host canvas { cursor: pointer; }
+body.erasing #canvas-host canvas { cursor: not-allowed; }
+
+/* Hide create-only form rows when a modal is in edit mode. */
+.modal.mode-edit .create-only { display: none; }
 
 /* ==========  BOTTOM BAR  ========== */
 #bottom-bar {

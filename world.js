@@ -28,6 +28,19 @@ function spawnFoodInRegions(world, regions, dtSec) {
   }
 }
 
+// Perpendicular distance from a point to a line segment.
+function pointToSegmentDist(px, py, p1, p2) {
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(px - p1.x, py - p1.y);
+  let t = ((px - p1.x) * dx + (py - p1.y) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const qx = p1.x + t * dx;
+  const qy = p1.y + t * dy;
+  return Math.hypot(px - qx, py - qy);
+}
+
 // Shared logic: any region (house or zone) the organism's lineage isn't
 // allowed into deflects it back to the perimeter and costs a little energy.
 function bounceFromList(org, regions) {
@@ -182,6 +195,57 @@ export class World {
 
   addBarrier(barrier) {
     this.barriers.push(barrier);
+  }
+
+  // Hit detection for edit / erase tools. Tests barriers first (smaller
+  // target, more specific), then houses, then zones. Returns { type, entity }
+  // or null. `slop` is in px and is added on top of each shape's natural
+  // tolerance so touch input remains forgiving.
+  findEntityAt(x, y, slop = 4) {
+    for (let i = 0; i < this.barriers.length; i++) {
+      const b = this.barriers[i];
+      const tol = b.thickness / 2 + slop;
+      const pts = b.points;
+      for (let j = 0; j < pts.length - 1; j++) {
+        if (pointToSegmentDist(x, y, pts[j], pts[j + 1]) <= tol) {
+          return { type: 'barrier', entity: b };
+        }
+      }
+    }
+    for (let i = this.houses.length - 1; i >= 0; i--) {
+      const h = this.houses[i];
+      const dx = x - h.x, dy = y - h.y;
+      if (dx * dx + dy * dy <= (h.radius + slop) * (h.radius + slop)) {
+        return { type: 'house', entity: h };
+      }
+    }
+    for (let i = this.zones.length - 1; i >= 0; i--) {
+      const z = this.zones[i];
+      const dx = x - z.x, dy = y - z.y;
+      if (dx * dx + dy * dy <= (z.radius + slop) * (z.radius + slop)) {
+        return { type: 'zone', entity: z };
+      }
+    }
+    return null;
+  }
+
+  removeBarrier(id) {
+    this.barriers = this.barriers.filter((b) => b.id !== id);
+  }
+
+  removeZone(id) {
+    this.zones = this.zones.filter((z) => z.id !== id);
+  }
+
+  removeHouse(id) {
+    const h = this.houses.find((x) => x.id === id);
+    if (!h) return;
+    this.houses = this.houses.filter((x) => x.id !== id);
+    const lin = this.lineages.get(h.lineageId);
+    if (lin && lin.houseId === id) {
+      lin.houseId = null;
+      lin.house = null;
+    }
   }
 
   // Pick a valid spawn for a predator: not inside any house, not inside any

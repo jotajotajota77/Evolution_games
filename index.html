@@ -31,6 +31,8 @@
       <button class="tool" data-tool="house" title="Place house: click + drag">⌂</button>
       <button class="tool" data-tool="zone" title="Place zone: click + drag">◯</button>
       <button class="tool" data-tool="barrier" title="Draw barrier: click + drag">▬</button>
+      <button class="tool" data-tool="edit" title="Edit element: tap a house / zone / barrier">✎</button>
+      <button class="tool" data-tool="erase" title="Erase element: tap a house / zone / barrier">✕</button>
     </div>
 
     <!-- Bottom app bar -->
@@ -97,18 +99,19 @@
     <!-- Modal backdrop: either #house-modal or #zone-modal is shown at a time. -->
     <div id="modal-backdrop" class="hidden">
       <div id="house-modal" class="modal">
-        <h2>New Lineage</h2>
-        <p class="modal-hint">Founders spawn inside the zone with random brains.</p>
+        <h2 data-h2-create="New Lineage" data-h2-edit="Edit House">New Lineage</h2>
+        <p class="modal-hint" data-hint-create="Founders spawn inside the zone with random brains."
+           data-hint-edit="Adjust this house's zone and access rules.">Founders spawn inside the zone with random brains.</p>
         <form id="house-form" autocomplete="off">
-          <div class="form-row">
+          <div class="form-row create-only">
             <label>name</label>
-            <input type="text" name="name" required maxlength="20" />
+            <input type="text" name="name" maxlength="20" />
           </div>
-          <div class="form-row">
+          <div class="form-row create-only">
             <label>color</label>
             <input type="color" name="color" />
           </div>
-          <div class="form-row">
+          <div class="form-row create-only">
             <label>founders</label>
             <input type="number" name="founders" min="1" max="100" />
           </div>
@@ -150,8 +153,10 @@
       </div>
 
       <div id="zone-modal" class="modal hidden">
-        <h2>New Zone</h2>
-        <p class="modal-hint">A region with custom rules. Open to everyone unless you tick lineages below.</p>
+        <h2 data-h2-create="New Zone" data-h2-edit="Edit Zone">New Zone</h2>
+        <p class="modal-hint"
+           data-hint-create="A region with custom rules. Open to everyone unless you tick lineages below."
+           data-hint-edit="Adjust this zone's rules and access list.">A region with custom rules. Open to everyone unless you tick lineages below.</p>
         <form id="zone-form" autocomplete="off">
           <div class="form-row">
             <label>color</label>
@@ -187,8 +192,10 @@
       </div>
 
       <div id="barrier-modal" class="modal hidden">
-        <h2>New Barrier</h2>
-        <p class="modal-hint">A wall segment. Lineages you tick may cross; others bounce off.</p>
+        <h2 data-h2-create="New Barrier" data-h2-edit="Edit Barrier">New Barrier</h2>
+        <p class="modal-hint"
+           data-hint-create="A wall segment. Lineages you tick may cross; others bounce off."
+           data-hint-edit="Adjust this barrier's properties.">A wall segment. Lineages you tick may cross; others bounce off.</p>
         <form id="barrier-form" autocomplete="off">
           <div class="form-row">
             <label>color</label>

@@ -12,6 +12,8 @@ const listeners = {
   onPlaceHouse:   null, // (x, y, radius) => void
   onPlaceZone:    null, // (x, y, radius) => void
   onPlaceBarrier: null, // (x1, y1, x2, y2) => void
+  onErase:        null, // (x, y) => void
+  onEdit:         null, // (x, y) => void
   onToolChange:   null, // (toolName) => void
 };
 
@@ -47,6 +49,14 @@ export function onPlaceBarrier(cb) {
   listeners.onPlaceBarrier = cb;
 }
 
+export function onErase(cb) {
+  listeners.onErase = cb;
+}
+
+export function onEdit(cb) {
+  listeners.onEdit = cb;
+}
+
 export function onToolChange(cb) {
   listeners.onToolChange = cb;
 }
@@ -58,6 +68,10 @@ export function onMouseDown(x, y) {
     // Snapshot the active tool on the drag so a quick mid-drag tool switch
     // doesn't reroute the placement.
     state.drag = { startX: x, startY: y, currentX: x, currentY: y, tool: state.current };
+  } else if (state.current === 'erase') {
+    if (listeners.onErase) listeners.onErase(x, y);
+  } else if (state.current === 'edit') {
+    if (listeners.onEdit) listeners.onEdit(x, y);
   }
 }
 

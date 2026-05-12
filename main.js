@@ -10,7 +10,8 @@ import { House } from './house.js';
 import { Zone } from './zone.js';
 import { Barrier } from './barrier.js';
 import {
-  setTool, getTool, isModalOpen, onPlaceHouse, onPlaceZone, onPlaceBarrier, onToolChange,
+  setTool, getTool, isModalOpen, onPlaceHouse, onPlaceZone, onPlaceBarrier,
+  onErase, onEdit, onToolChange,
   onMouseDown, onMouseMove, onMouseUp, getDrag,
 } from './tools.js';
 import { showHouseModal, showZoneModal, showBarrierModal } from './ui.js';
@@ -834,7 +835,10 @@ function setupToolbar() {
   });
   onToolChange((name) => {
     buttons.forEach((b) => b.classList.toggle('active', b.dataset.tool === name));
-    document.body.classList.toggle('placing', name === 'house');
+    const placing = name === 'house' || name === 'zone' || name === 'barrier';
+    document.body.classList.toggle('placing', placing);
+    document.body.classList.toggle('editing', name === 'edit');
+    document.body.classList.toggle('erasing', name === 'erase');
   });
 }
 
@@ -881,6 +885,75 @@ function handlePlaceBarrier(x1, y1, x2, y2) {
     },
     () => setTool('select'),
   );
+}
+
+function handleErase(x, y) {
+  const w = state.world;
+  const hit = w.findEntityAt(x, y);
+  if (!hit) return;
+  if (hit.type === 'barrier') w.removeBarrier(hit.entity.id);
+  else if (hit.type === 'house') w.removeHouse(hit.entity.id);
+  else if (hit.type === 'zone') w.removeZone(hit.entity.id);
+}
+
+function handleEdit(x, y) {
+  const w = state.world;
+  const hit = w.findEntityAt(x, y);
+  if (!hit) return;
+  const existingLineages = [...w.lineages.values()];
+  if (hit.type === 'house') {
+    const house = hit.entity;
+    showHouseModal(
+      { name: '', color: [0, 0, 0] }, existingLineages,
+      (data) => {
+        // Apply data to the existing house. Lineage id stays the same;
+        // home lineage is auto-added back by the Set.
+        house.zone.foodDensity = data.foodDensity;
+        house.zone.foodEnergy = data.foodEnergy;
+        house.zone.decayMultiplier = data.decayMultiplier;
+        house.zone.predatorsAllowed = data.predatorsAllowed;
+        house.barrier.transparentFromInside = data.transparentFromInside;
+        house.barrier.transparentFromOutside = data.transparentFromOutside;
+        const allowed = new Set(data.allowedLineages);
+        allowed.add(house.lineageId);
+        house.allowedLineages = allowed;
+        setTool('select');
+      },
+      () => setTool('select'),
+      house,
+    );
+  } else if (hit.type === 'zone') {
+    const zone = hit.entity;
+    showZoneModal(
+      existingLineages,
+      (data) => {
+        zone.color = [...data.color];
+        zone.zone.foodDensity = data.foodDensity;
+        zone.zone.foodEnergy = data.foodEnergy;
+        zone.zone.decayMultiplier = data.decayMultiplier;
+        zone.zone.predatorsAllowed = data.predatorsAllowed;
+        zone.allowedLineages = new Set(data.allowedLineages);
+        setTool('select');
+      },
+      () => setTool('select'),
+      zone,
+    );
+  } else if (hit.type === 'barrier') {
+    const bar = hit.entity;
+    showBarrierModal(
+      existingLineages,
+      (data) => {
+        bar.color = [...data.color];
+        bar.thickness = data.thickness;
+        bar.transparentFromSideA = data.transparentFromSideA;
+        bar.transparentFromSideB = data.transparentFromSideB;
+        bar.allowedLineages = new Set(data.allowedLineages);
+        setTool('select');
+      },
+      () => setTool('select'),
+      bar,
+    );
+  }
 }
 
 function handlePlaceZone(x, y, radius) {
@@ -949,6 +1022,8 @@ window.addEventListener('DOMContentLoaded', () => {
   onPlaceHouse(handlePlaceHouse);
   onPlaceZone(handlePlaceZone);
   onPlaceBarrier(handlePlaceBarrier);
+  onErase(handleErase);
+  onEdit(handleEdit);
 
   const v = document.getElementById('version-tag');
   if (v) v.textContent = CONFIG.version;
