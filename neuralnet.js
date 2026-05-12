@@ -1,7 +1,7 @@
 import { CONFIG } from './config.js';
 
 // Box-Muller. One sample per call is fine for our weight counts (~1k).
-function gaussianRandom() {
+export function gaussianRandom() {
   const u = Math.random() || 1e-9;
   const v = Math.random();
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);

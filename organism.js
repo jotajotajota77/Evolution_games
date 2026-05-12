@@ -1,12 +1,12 @@
 import { CONFIG } from './config.js';
-import { NeuralNet, sigmoid } from './neuralnet.js';
+import { NeuralNet, sigmoid, gaussianRandom } from './neuralnet.js';
 import { computeSensors, SENSOR_COUNT } from './sensors.js';
 
 // Phase 2: NN-controlled motion + asexual reproduction with mutation.
 // The brain is a NeuralNet; sensors are computed each tick into a per-organism
 // reusable buffer, then fed forward to produce three output intents.
 export class Organism {
-  constructor(x, y, lineageId = CONFIG.defaultLineage.id, brain = null) {
+  constructor(x, y, lineageId = CONFIG.defaultLineage.id, brain = null, colorDrift = null) {
     this.x = x;
     this.y = y;
     this.heading = Math.random() * Math.PI * 2;
@@ -22,8 +22,9 @@ export class Organism {
     this.sensorBuffer = new Float32Array(SENSOR_COUNT);
     this.wantsToReproduce = false;
 
-    // Per-individual hue jitter for visual distinction within a lineage.
-    this.hueJitter = (Math.random() - 0.5) * 14;
+    // Inheritable per-individual colour offset. Founders start at zero; each
+    // birth accumulates a small gaussian step (see spawnChild).
+    this.colorDrift = colorDrift ? [colorDrift[0], colorDrift[1], colorDrift[2]] : [0, 0, 0];
   }
 
   update(dtSec, world) {
@@ -121,11 +122,25 @@ export class Organism {
     const cx = this.x + Math.cos(offsetAngle) * offsetDist;
     const cy = this.y + Math.sin(offsetAngle) * offsetDist;
 
-    const child = new Organism(cx, cy, this.lineageId, childBrain);
+    // Inherit + drift. Each channel gets an independent gaussian nudge,
+    // clamped so colour stays recognisable as a variant of the lineage.
+    const sig = CONFIG.colorDriftSigma;
+    const mx = CONFIG.colorDriftMax;
+    const drift = [
+      clampDrift(this.colorDrift[0] + gaussianRandom() * sig, mx),
+      clampDrift(this.colorDrift[1] + gaussianRandom() * sig, mx),
+      clampDrift(this.colorDrift[2] + gaussianRandom() * sig, mx),
+    ];
+
+    const child = new Organism(cx, cy, this.lineageId, childBrain, drift);
     child.energy = this.energy;
     child.generation = this.generation + 1;
 
     this.wantsToReproduce = false;
     return child;
   }
+}
+
+function clampDrift(v, mx) {
+  return v > mx ? mx : (v < -mx ? -mx : v);
 }

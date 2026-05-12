@@ -76,7 +76,8 @@ function serialize(w) {
     organisms: w.organisms.map((o) => ({
       x: o.x, y: o.y, heading: o.heading, currentSpeed: o.currentSpeed,
       energy: o.energy, ageSec: o.ageSec, lineageId: o.lineageId,
-      generation: o.generation, hueJitter: o.hueJitter,
+      generation: o.generation,
+      colorDrift: o.colorDrift ? [...o.colorDrift] : [0, 0, 0],
       brain: Array.from(o.brain.weights),
     })),
     predators: w.predators.map((p) => ({
@@ -149,13 +150,12 @@ function deserialize(d) {
 
   for (const od of d.organisms || []) {
     const brain = new NeuralNet(undefined, new Float32Array(od.brain));
-    const o = new Organism(od.x, od.y, od.lineageId, brain);
+    const o = new Organism(od.x, od.y, od.lineageId, brain, od.colorDrift);
     o.heading = od.heading;
     o.currentSpeed = od.currentSpeed;
     o.energy = od.energy;
     o.ageSec = od.ageSec;
     o.generation = od.generation;
-    if (typeof od.hueJitter === 'number') o.hueJitter = od.hueJitter;
     w.organisms.push(o);
   }
 

@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.15',
+  version: 'v1.16',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -75,6 +75,12 @@ export const CONFIG = {
   mutationSigma: 0.18,              // gaussian std-dev for mutation
   maxPopulation: 400,               // hard cap; reproduction blocked at cap
   childOffsetMax: 6,                // px from parent on birth
+
+  // Per-individual colour drift accumulated across generations. The renderer
+  // mixes the lineage base colour with the drift before drawing, so over
+  // many generations descendants visibly diverge from their lineage hue.
+  colorDriftSigma: 3,               // gaussian std-dev (per channel, per birth)
+  colorDriftMax: 80,                // clamp |drift| per channel (0-255 scale)
 
   // Lineage palette — used as default colors when the user creates new lineages.
   // Each entry suggests a name and an RGB triple. Users may pick any custom color.

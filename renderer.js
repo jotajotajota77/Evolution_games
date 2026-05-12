@@ -59,8 +59,13 @@ export function drawOrganisms(world) {
   p.noStroke();
   for (const o of world.organisms) {
     const lin = world.lineages.get(o.lineageId);
-    const baseRgb = lin ? lin.color : [200, 200, 220];
-    const [r, g, b] = baseRgb;
+    const base = lin ? lin.color : [200, 200, 220];
+    // Per-individual drift accumulates across generations — paints a soft
+    // family tree onto the lineage's base hue.
+    const d = o.colorDrift;
+    const r = clampByte(base[0] + (d ? d[0] : 0));
+    const g = clampByte(base[1] + (d ? d[1] : 0));
+    const b = clampByte(base[2] + (d ? d[2] : 0));
     // Energy modulates alpha so weak organisms visibly fade.
     const alpha = 140 + Math.min(115, (o.energy / 100) * 115);
     ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.9)`;
@@ -69,6 +74,8 @@ export function drawOrganisms(world) {
   }
   ctx.shadowBlur = 0;
 }
+
+function clampByte(v) { return v < 0 ? 0 : (v > 255 ? 255 : v); }
 
 // Non-house zones: subtle filled disc with a dashed outline so it visually
 // reads as "a rule region without a fortified wall". Drawn before houses so
