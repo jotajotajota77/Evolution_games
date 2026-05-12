@@ -4,6 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="google" content="notranslate" />
+  <meta name="theme-color" content="#0a0a14" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Evolution" />
   <title>Evolution — Artificial Life</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -74,6 +81,10 @@
         <span class="slider-value" id="ui-transparency-value">0%</span>
       </div>
       <div class="popup-hint">above 95% the ui auto-hides; tap the screen to peek</div>
+
+      <div class="popup-title">install</div>
+      <button class="popup-item" id="btn-install" hidden>install as app</button>
+      <div class="popup-hint" id="install-hint">on chrome / edge an install option will appear here once the browser is ready. on iOS use share → add to home screen.</div>
     </div>
 
     <div id="popup-world" class="popup hidden" data-anchor="world">

@@ -1292,10 +1292,56 @@ function handlePlaceHouse(x, y, radius) {
 // ============================================================================
 // Boot
 // ============================================================================
+// PWA bits — register a no-cache service worker and capture the install
+// prompt event so a button in Settings can trigger it. iOS Safari does not
+// fire beforeinstallprompt, so the button just stays hidden there and the
+// settings popup keeps showing the manual "add to home screen" hint.
+let deferredInstallPrompt = null;
+
+function setupPwa() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => { /* not critical */ });
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    showInstallButton(true);
+  });
+
+  window.addEventListener('appinstalled', () => {
+    showInstallButton(false);
+    deferredInstallPrompt = null;
+    const hint = document.getElementById('install-hint');
+    if (hint) hint.textContent = 'installed.';
+  });
+
+  const installBtn = document.getElementById('btn-install');
+  if (installBtn) {
+    installBtn.addEventListener('click', async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      try {
+        const { outcome } = await deferredInstallPrompt.userChoice;
+        if (outcome === 'accepted') showInstallButton(false);
+      } catch (_) { /* user dismissed */ }
+      deferredInstallPrompt = null;
+    });
+  }
+}
+
+function showInstallButton(show) {
+  const btn = document.getElementById('btn-install');
+  const hint = document.getElementById('install-hint');
+  if (btn) btn.hidden = !show;
+  if (hint) hint.style.display = show ? 'none' : '';
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   new p5(sketch);
   setupBottomBar();
   setupToolbar();
+  setupPwa();
   onPlaceHouse(handlePlaceHouse);
   onPlaceZone(handlePlaceZone);
   onPlaceBarrier(handlePlaceBarrier);

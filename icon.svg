@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="65%">
+      <stop offset="0%" stop-color="#16182c"/>
+      <stop offset="100%" stop-color="#06080f"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- Faint cell field -->
+  <circle cx="280" cy="118" r="9"  fill="#7fffd4" opacity="0.55"/>
+  <circle cx="98"  cy="276" r="8"  fill="#ff7fc8" opacity="0.55"/>
+  <circle cx="418" cy="276" r="11" fill="#7fa9ff" opacity="0.55"/>
+  <circle cx="232" cy="402" r="7"  fill="#ffc864" opacity="0.55"/>
+  <!-- Bright glowing organisms -->
+  <circle cx="146" cy="184" r="20" fill="#7fa9ff" filter="url(#glow)"/>
+  <circle cx="376" cy="160" r="18" fill="#ff7fc8" filter="url(#glow)"/>
+  <circle cx="388" cy="372" r="22" fill="#ffc864" filter="url(#glow)"/>
+  <circle cx="158" cy="376" r="20" fill="#a880ff" filter="url(#glow)"/>
+  <!-- Centre organism, primary accent -->
+  <circle cx="256" cy="256" r="40" fill="#7fffd4" filter="url(#glow)"/>
+</svg>
