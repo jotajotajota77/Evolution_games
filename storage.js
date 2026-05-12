@@ -7,6 +7,7 @@ import { Predator, ensureNextPredatorId } from './predator.js';
 import { Organism } from './organism.js';
 import { NeuralNet } from './neuralnet.js';
 import { Phylo, PhyloSpecies, ensureNextSpeciesId } from './phylo.js';
+import { randomBinomial, deriveChildName } from './names.js';
 
 const STORAGE_KEY = 'evolution_save_v1';
 
@@ -116,9 +117,18 @@ function deserialize(d) {
   w.maxGenerationSeen = d.maxGenerationSeen || 0;
   w._recomputeDayCycle();
 
+  // Track renamed lineages so phylo species (root + descendants) can be
+  // patched up too if the snapshot was made on an older version that still
+  // used the literal "default" name.
+  const renamedLineageNames = new Map();
   let maxLineageId = 0;
   for (const ld of d.lineages || []) {
-    const lin = new Lineage(ld.id, ld.name, ld.color);
+    let name = ld.name;
+    if (!name || name === 'default') {
+      name = randomBinomial();
+      renamedLineageNames.set(ld.id, name);
+    }
+    const lin = new Lineage(ld.id, name, ld.color);
     lin.houseId = ld.houseId ?? null;
     w.lineages.set(lin.id, lin);
     if (ld.id > maxLineageId) maxLineageId = ld.id;
@@ -164,12 +174,27 @@ function deserialize(d) {
   if (d.phylo) {
     w.phylo = new Phylo();
     let maxSpeciesId = 0;
+    // Species in the snapshot are saved parent-before-child (insertion
+    // order in Phylo.species), so resolving names via a forward scan works.
+    const speciesById = new Map();
     for (const sd of d.phylo.species || []) {
-      const s = new PhyloSpecies(sd.id, sd.parentId, sd.lineageId, sd.color, sd.bornTick, sd.name || '?');
+      let name = sd.name;
+      if (!name || name === 'default' || name === '?') {
+        if (sd.parentId == null) {
+          // Root inherits the (possibly renamed) lineage name.
+          const lin = w.lineages.get(sd.lineageId);
+          name = lin ? lin.name : randomBinomial();
+        } else {
+          const parent = speciesById.get(sd.parentId);
+          name = parent ? deriveChildName(parent.name) : randomBinomial();
+        }
+      }
+      const s = new PhyloSpecies(sd.id, sd.parentId, sd.lineageId, sd.color, sd.bornTick, name);
       s.diedTick = sd.diedTick ?? null;
       s.peakPop = sd.peakPop || 0;
       s.currentPop = sd.currentPop || 0;
       w.phylo.species.push(s);
+      speciesById.set(s.id, s);
       if (sd.id > maxSpeciesId) maxSpeciesId = sd.id;
     }
     for (const [lid, sid] of d.phylo.lineageRoots || []) {

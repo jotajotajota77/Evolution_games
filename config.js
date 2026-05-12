@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.19',
+  version: 'v1.20',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -42,11 +42,10 @@ export const CONFIG = {
   organismEatRadius: 6,             // distance at which food is consumed
   organismNightDecayBonus: 0.6,     // extra decay at full night when outside own house
 
-  // Default lineage (phase 1 only has this one)
+  // Default lineage. `name` is generated fresh at world construction (via
+  // randomBinomial()) so the literal "default" never appears in the UI.
   defaultLineage: {
     id: 0,
-    name: 'default',
-    hue: 210,                       // soft blue
     color: [127, 169, 255],         // #7fa9ff
   },
 

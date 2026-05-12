@@ -184,7 +184,23 @@ const history = {
   labels: [],
   popByLin: new Map(),
   enByLin: new Map(),
+  // Per-zone population over time. Keys: 'open' for organisms outside every
+  // house, 'house-<id>' for each placed house. New keys are padded with
+  // nulls so their line starts at the current time instead of the left edge.
+  popByZone: new Map(),
 };
+
+function pushBoundedSeries(arr, val) {
+  arr.push(val);
+  if (arr.length > CONFIG.statsHistoryPoints) arr.shift();
+}
+
+function resetHistoryBuffers() {
+  history.labels.length = 0;
+  history.popByLin.clear();
+  history.enByLin.clear();
+  history.popByZone.clear();
+}
 
 function ensureLineageHistory(lin) {
   const padLen = history.labels.length;
@@ -214,12 +230,35 @@ function tickHistory() {
   for (const lin of w.lineages.values()) {
     const pop = popMap.get(lin.id) || 0;
     const avgE = pop > 0 ? sumE.get(lin.id) / pop : 0;
-    const popArr = history.popByLin.get(lin.id);
-    const enArr = history.enByLin.get(lin.id);
-    popArr.push(pop);
-    enArr.push(avgE);
-    if (popArr.length > CONFIG.statsHistoryPoints) popArr.shift();
-    if (enArr.length > CONFIG.statsHistoryPoints) enArr.shift();
+    pushBoundedSeries(history.popByLin.get(lin.id), pop);
+    pushBoundedSeries(history.enByLin.get(lin.id), avgE);
+  }
+
+  // Per-zone counts: "open" + one bucket per house. New keys padded with
+  // nulls so their line starts at the current frame, not the chart's left edge.
+  const padLen = history.labels.length - 1;
+  if (!history.popByZone.has('open')) history.popByZone.set('open', new Array(padLen).fill(null));
+  for (const h of w.houses) {
+    const key = `house-${h.id}`;
+    if (!history.popByZone.has(key)) history.popByZone.set(key, new Array(padLen).fill(null));
+  }
+  let openCount = 0;
+  const houseCounts = new Map();
+  for (const h of w.houses) houseCounts.set(h.id, 0);
+  for (const o of w.organisms) {
+    let placed = false;
+    for (const h of w.houses) {
+      if (h.contains(o.x, o.y)) {
+        houseCounts.set(h.id, houseCounts.get(h.id) + 1);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) openCount++;
+  }
+  pushBoundedSeries(history.popByZone.get('open'), openCount);
+  for (const h of w.houses) {
+    pushBoundedSeries(history.popByZone.get(`house-${h.id}`), houseCounts.get(h.id));
   }
 
   // Refresh open chart windows.
@@ -351,22 +390,35 @@ const chartFactories = {
   zones: () => ({
     title: 'pop by zone',
     factory: (host) => {
-      const chart = makeBarChartCanvas(host, false);
+      const chart = makeLineChartCanvas(host);
       const update = () => {
         const w = state.world;
-        const housed = [...w.lineages.values()].filter((l) => l.house);
-        const labels = ['open', ...housed.map((l) => l.name)];
-        const colors = ['#3a3a4a', ...housed.map((l) => rgbToCss(l.color, 0.7))];
-        const counts = new Array(labels.length).fill(0);
-        for (const o of w.organisms) {
-          let placed = false;
-          for (let i = 0; i < housed.length; i++) {
-            if (housed[i].house.contains(o.x, o.y)) { counts[1 + i]++; placed = true; break; }
-          }
-          if (!placed) counts[0]++;
+        chart.data.labels = history.labels;
+        const datasets = [];
+        const openData = history.popByZone.get('open');
+        if (openData) {
+          datasets.push({
+            label: 'open',
+            data: openData,
+            borderColor: '#7a7a92',
+            backgroundColor: 'rgba(122, 122, 146, 0.10)',
+            fill: true,
+          });
         }
-        chart.data.labels = labels;
-        chart.data.datasets = [{ data: counts, backgroundColor: colors }];
+        for (const h of w.houses) {
+          const arr = history.popByZone.get(`house-${h.id}`);
+          if (!arr) continue;
+          const lin = w.lineages.get(h.lineageId);
+          const color = lin ? rgbToCss(lin.color) : '#888';
+          datasets.push({
+            label: lin ? lin.name : `house ${h.id}`,
+            data: arr,
+            borderColor: color,
+            backgroundColor: lin ? rgbToCss(lin.color, 0.12) : 'rgba(128, 128, 128, 0.1)',
+            fill: true,
+          });
+        }
+        chart.data.datasets = datasets;
         chart.update('none');
       };
       update();
@@ -897,9 +949,7 @@ function setupBottomBar() {
 
   popups.world.querySelector('[data-action="reset"]').addEventListener('click', () => {
     state.world.reset();
-    history.labels.length = 0;
-    for (const arr of history.popByLin.values()) arr.length = 0;
-    for (const arr of history.enByLin.values()) arr.length = 0;
+    resetHistoryBuffers();
     state.world.deathsByCause.starvation = 0;
     state.world.deathsByCause.age = 0;
     state.world.deathsByCause.predation = 0;
@@ -907,9 +957,7 @@ function setupBottomBar() {
   });
   popups.world.querySelector('[data-action="clear-all"]').addEventListener('click', () => {
     state.world.clearAll();
-    history.labels.length = 0;
-    for (const arr of history.popByLin.values()) arr.length = 0;
-    for (const arr of history.enByLin.values()) arr.length = 0;
+    resetHistoryBuffers();
     state.world.deathsByCause.starvation = 0;
     state.world.deathsByCause.age = 0;
     state.world.deathsByCause.predation = 0;
@@ -1114,9 +1162,15 @@ function handleErase(x, y) {
   const w = state.world;
   const hit = w.findEntityAt(x, y);
   if (!hit) return;
-  if (hit.type === 'barrier') w.removeBarrier(hit.entity.id);
-  else if (hit.type === 'house') w.removeHouse(hit.entity.id);
-  else if (hit.type === 'zone') w.removeZone(hit.entity.id);
+  if (hit.type === 'barrier') {
+    w.removeBarrier(hit.entity.id);
+  } else if (hit.type === 'house') {
+    // Drop the zone-history key so the line stops growing once removed.
+    history.popByZone.delete(`house-${hit.entity.id}`);
+    w.removeHouse(hit.entity.id);
+  } else if (hit.type === 'zone') {
+    w.removeZone(hit.entity.id);
+  }
 }
 
 function handleEdit(x, y) {
