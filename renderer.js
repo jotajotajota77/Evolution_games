@@ -22,13 +22,15 @@ export function rebuildVignette(w, h) {
   ctx.fillRect(0, 0, w, h);
 }
 
-// Trail layer: instead of clearing each frame, fade with a translucent rectangle.
-// This bakes motion blur/trails into the canvas itself.
-export function drawTrailFade() {
+// Trail layer: instead of clearing each frame, fade with a translucent
+// rectangle. The colour is the current sky tint, so the canvas slowly
+// drifts toward day or night while still leaving organism trails behind.
+// Alpha is constant (~0.15) — that controls how fast trails decay.
+export function drawTrailFade(rgb = CONFIG.worldBgDay) {
   if (!p) return;
   p.noStroke();
   p.drawingContext.shadowBlur = 0;
-  p.fill(CONFIG.trailFade);
+  p.fill(rgb[0], rgb[1], rgb[2], 38);
   p.rect(0, 0, p.width, p.height);
 }
 

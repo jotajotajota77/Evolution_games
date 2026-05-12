@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.5',
+  version: 'v1.6',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -13,6 +13,12 @@ export const CONFIG = {
   targetFps: 60,
   speedSteps: [0.5, 1, 5, 10, 20],  // selectable from the "world" popup
   defaultSpeedIdx: 1,               // start at 1x
+
+  // Day/night cycle
+  dayLengthSec: 90,                 // sim-seconds per full day
+  // dayPhase 0 = midnight, 0.5 = noon. We start the world at noon so the
+  // initial population doesn't immediately face night-rate decay.
+  startAtNoon: true,
 
   // Food
   foodSpawnRatePerSec: 14,          // global uniform spawn (no zones yet)
@@ -32,6 +38,7 @@ export const CONFIG = {
   organismEnergyDecayMoveMult: 1.6, // scales with normalized speed
   organismMaxAgeSec: 90,            // soft ceiling so populations cycle
   organismEatRadius: 6,             // distance at which food is consumed
+  organismNightDecayBonus: 0.6,     // extra decay at full night when outside own house
 
   // Default lineage (phase 1 only has this one)
   defaultLineage: {

@@ -68,13 +68,20 @@ export class Organism {
     }
 
     // 6. Energy decay (base + speed-scaled), modulated by the zone the organism
-    //    is currently in. In phase 3 the only zones are house zones, applied
-    //    to any organism standing inside (own or foreign).
+    //    is currently in. Phase 4 also adds a night penalty: organisms outside
+    //    their own house's zone burn more energy after dark.
     const speedNorm = this.currentSpeed / CONFIG.organismMaxSpeed;
     const zoneMult = world.zoneDecayMultiplierAt(this.x, this.y);
+
+    const lin = world.lineages.get(this.lineageId);
+    const inOwnHouse = !!(lin && lin.house && lin.house.contains(this.x, this.y));
+    const nightFactor = 1 - world.daylight;          // 0 at noon, 1 at midnight
+    const nightMult = inOwnHouse ? 1 : (1 + nightFactor * CONFIG.organismNightDecayBonus);
+
     const decay = CONFIG.organismEnergyDecayPerSec
       * (1 + (CONFIG.organismEnergyDecayMoveMult - 1) * speedNorm)
-      * zoneMult;
+      * zoneMult
+      * nightMult;
     this.energy -= decay * dtSec;
 
     // 7. Death.

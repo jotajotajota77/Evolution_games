@@ -79,7 +79,7 @@ const sketch = (p) => {
       for (let i = 0; i < subSteps; i++) state.world.update(dt);
     }
 
-    drawTrailFade();
+    drawTrailFade(state.world.currentBgColor());
     drawHouses(state.world);
     drawFood(state.world);
     drawOrganisms(state.world);
@@ -135,10 +135,11 @@ function updateHud() {
   document.getElementById('hud-food').textContent = w.food.length;
   document.getElementById('hud-fps').textContent = state.fps;
   document.getElementById('hud-gen').textContent = w.maxGenerationSeen || 0;
-  const total = Math.floor(w.tickSec);
-  const mm = String(Math.floor(total / 60)).padStart(2, '0');
-  const ss = String(total % 60).padStart(2, '0');
-  document.getElementById('hud-time').textContent = `${mm}:${ss}`;
+  // In-game clock: phase 0 = midnight, phase 0.5 = noon. 1440 minutes per day.
+  const totalMin = Math.floor((w.dayPhase || 0) * 1440);
+  const hh = String(Math.floor(totalMin / 60)).padStart(2, '0');
+  const mm = String(totalMin % 60).padStart(2, '0');
+  document.getElementById('hud-day').textContent = `d${w.dayCount || 1} ${hh}:${mm}`;
 }
 
 // ============================================================================

@@ -28,11 +28,40 @@ export class World {
 
     this.houses = [];
 
-    this.tickSec = 0;
+    this.tickSec = CONFIG.startAtNoon ? CONFIG.dayLengthSec / 2 : 0;
     this.foodSpawnAccumulator = 0;
     this.deathsByCause = { starvation: 0, age: 0 };
     this.totalBirths = 0;
     this.maxGenerationSeen = 0;
+
+    // Day/night state. Recomputed every tick from tickSec so sub-stepping
+    // and speed multipliers don't drift. daylight is a smooth 0..1 signal:
+    //   midnight = 0, noon = 1, with cosine easing through dawn/dusk.
+    this.dayPhase = 0;
+    this.dayCount = 1;
+    this.daylight = 1;
+    this._recomputeDayCycle();
+  }
+
+  _recomputeDayCycle() {
+    const len = CONFIG.dayLengthSec;
+    this.dayPhase = (this.tickSec % len) / len;
+    this.dayCount = Math.floor(this.tickSec / len) + 1;
+    this.daylight = (1 - Math.cos(2 * Math.PI * this.dayPhase)) / 2;
+  }
+
+  // Sky tint at the current moment, lerped between worldBgNight and worldBgDay.
+  // Used by the renderer's per-frame trail-fade overlay so the canvas slowly
+  // drifts toward the right colour as time passes.
+  currentBgColor() {
+    const d = this.daylight;
+    const day = CONFIG.worldBgDay;
+    const night = CONFIG.worldBgNight;
+    return [
+      night[0] + (day[0] - night[0]) * d,
+      night[1] + (day[1] - night[1]) * d,
+      night[2] + (day[2] - night[2]) * d,
+    ];
   }
 
   resize(w, h) {
@@ -71,7 +100,8 @@ export class World {
     // Only living state is cleared. Reset accumulators on houses so they don't
     // burst-spawn after pause-resume.
     for (const h of this.houses) h.foodSpawnAccumulator = 0;
-    this.tickSec = 0;
+    this.tickSec = CONFIG.startAtNoon ? CONFIG.dayLengthSec / 2 : 0;
+    this._recomputeDayCycle();
     this.foodSpawnAccumulator = 0;
     this.deathsByCause = { starvation: 0, age: 0 };
     this.totalBirths = 0;
@@ -125,6 +155,7 @@ export class World {
   // dtSec is already speed-scaled by the caller.
   update(dtSec) {
     this.tickSec += dtSec;
+    this._recomputeDayCycle();
 
     // --- Food spawn ---
     // Open-area pellets: try to land in non-house space. Failing 8 times means

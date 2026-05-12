@@ -118,7 +118,12 @@ export function computeSensors(org, world, out) {
   out[PROP_BASE + 1] = org.currentSpeed / CONFIG.organismMaxSpeed;
   out[PROP_BASE + 2] = Math.min(1, org.ageSec / CONFIG.organismMaxAgeSec);
 
-  // Time slots (27-28) stay zero — phase 4.
+  // Time slots (27-28): sin/cos of dayPhase. Continuous + smooth so the NN
+  // can learn arbitrary day/night responses without a wrap discontinuity.
+  const phase = world.dayPhase || 0;
+  const tau = 2 * Math.PI * phase;
+  out[TIME_BASE]     = Math.sin(tau);
+  out[TIME_BASE + 1] = Math.cos(tau);
 
   // House sensors (29-31): innate spatial reference to the lineage's home.
   // Computed every frame from geometry — independent of vision.
