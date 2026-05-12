@@ -1,13 +1,15 @@
-// Minimal service worker. Chrome's PWA install prompt requires a SW with a
-// fetch event listener (even a pass-through one). We don't cache anything
-// here — the simulation logic changes often and stale assets would surprise
-// users. Static-asset caching can be added later if needed.
+// Service worker. Required for Chrome's "install as app" prompt to surface
+// (Chrome wants a SW with a fetch listener). While the project moves fast
+// we bypass the browser's HTTP cache by setting cache: 'no-cache' on every
+// fetch — that still validates with ETag / Last-Modified so unchanged files
+// don't re-download, but changed files always come back fresh.
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+
 self.addEventListener('fetch', (e) => {
-  // Pass through to the network. With no e.respondWith here Chrome may
-  // not count this as a "with fetch handler" SW; the empty handler that
-  // touches the event satisfies the requirement.
-  e.respondWith(fetch(e.request).catch(() => new Response('', { status: 503 })));
+  const req = new Request(e.request, { cache: 'no-cache' });
+  e.respondWith(
+    fetch(req).catch(() => new Response('', { status: 503 })),
+  );
 });

@@ -1379,7 +1379,12 @@ let deferredInstallPrompt = null;
 
 function setupPwa() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(() => { /* not critical */ });
+    navigator.serviceWorker.register('./sw.js').then((reg) => {
+      // Active development: ask the browser to check for an updated SW on
+      // every page load. Combined with the SW's cache: 'no-cache' fetches
+      // this keeps users on the latest code without manual clearing.
+      reg.update().catch(() => { /* ignore */ });
+    }).catch(() => { /* not critical */ });
   }
 
   window.addEventListener('beforeinstallprompt', (e) => {
