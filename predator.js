@@ -7,6 +7,10 @@ export const PREDATOR_LINEAGE_ID = -1;
 
 let nextPredatorId = 1;
 
+export function ensureNextPredatorId(min) {
+  if (min > nextPredatorId) nextPredatorId = min;
+}
+
 // Scripted predator. No NN: steers toward the nearest organism and attacks
 // on contact. Energy decays continuously; each kill restores a chunk.
 // A short cooldown after a kill avoids machine-gun feeding.

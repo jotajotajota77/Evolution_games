@@ -1,5 +1,9 @@
 let nextHouseId = 1;
 
+export function ensureNextHouseId(min) {
+  if (min > nextHouseId) nextHouseId = min;
+}
+
 // A house combines a circular zone (alters food density + energy decay locally)
 // with an automatic circular barrier permeable to the lineages listed in
 // `allowedLineages`. Organisms whose lineage isn't allowed bounce off the

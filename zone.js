@@ -1,5 +1,9 @@
 let nextZoneId = 1;
 
+export function ensureNextZoneId(min) {
+  if (min > nextZoneId) nextZoneId = min;
+}
+
 // A non-house zone: a circular region with its own food density / food energy
 // / decay multiplier, and an optional access list. Unlike houses, zones have
 // no automatic barrier and no associated lineage. With an empty

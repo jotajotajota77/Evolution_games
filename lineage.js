@@ -3,6 +3,12 @@ import { CONFIG } from './config.js';
 // id=0 is reserved for the auto-seeded default lineage from earlier phases.
 let nextLineageId = 1;
 
+// Called by storage.js after loading so future auto-ids don't collide with
+// loaded ones.
+export function ensureNextLineageId(min) {
+  if (min > nextLineageId) nextLineageId = min;
+}
+
 // A lineage is a group of organisms that share a reproduction tree, a colour,
 // and (once placed) a home. The `house` reference is populated by world.addHouse.
 export class Lineage {

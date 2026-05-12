@@ -1,5 +1,9 @@
 let nextBarrierId = 1;
 
+export function ensureNextBarrierId(min) {
+  if (min > nextBarrierId) nextBarrierId = min;
+}
+
 // A barrier is a polyline (array of points) with per-side visibility and a
 // per-lineage permeability list. In v1 we only place 2-point segments via
 // click+drag, but the data model supports polylines for a future polish pass.

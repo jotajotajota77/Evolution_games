@@ -15,6 +15,7 @@ import {
 } from './tools.js';
 import { showHouseModal, showZoneModal, showBarrierModal } from './ui.js';
 import { FloatingWindow } from './windows.js';
+import { saveWorld, loadWorld, hasSavedWorld } from './storage.js';
 
 // ---- runtime state ----
 const state = {
@@ -695,6 +696,47 @@ function setupBottomBar() {
   });
   popups.world.querySelector('[data-action="clear-predators"]').addEventListener('click', () => {
     state.world.predators.length = 0;
+  });
+
+  const saveStatus = document.getElementById('save-status');
+  const loadBtn = document.getElementById('btn-load');
+  const refreshLoadBtn = () => {
+    if (loadBtn) {
+      loadBtn.disabled = !hasSavedWorld();
+      loadBtn.style.opacity = loadBtn.disabled ? '0.4' : '';
+      loadBtn.style.cursor = loadBtn.disabled ? 'not-allowed' : '';
+    }
+  };
+  refreshLoadBtn();
+
+  popups.world.querySelector('[data-action="save"]').addEventListener('click', () => {
+    const res = saveWorld(state.world);
+    if (saveStatus) {
+      saveStatus.textContent = res.ok
+        ? `saved ${(res.bytes / 1024).toFixed(1)} kb`
+        : `save failed: ${res.error}`;
+    }
+    refreshLoadBtn();
+  });
+
+  loadBtn.addEventListener('click', () => {
+    if (loadBtn.disabled) return;
+    const loaded = loadWorld();
+    if (!loaded) {
+      if (saveStatus) saveStatus.textContent = 'load failed';
+      return;
+    }
+    state.world = loaded;
+    // Resize spatial grids in case the saved world used a different size.
+    state.world.resize(state.world.width, state.world.height);
+    // History buffers were keyed by lineage; rebuild for whichever lineages
+    // came back.
+    history.labels.length = 0;
+    history.popByLin.clear();
+    history.enByLin.clear();
+    for (const lin of state.world.lineages.values()) ensureLineageHistory(lin);
+    if (saveStatus) saveStatus.textContent = `loaded · ${state.world.organisms.length} organisms`;
+    closeAllPopups();
   });
 
   // Settings: transparency slider
