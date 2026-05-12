@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.12',
+  version: 'v1.13',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -145,6 +145,10 @@ export const CONFIG = {
   predatorEnergyPerKill: 55,
   // No max-energy cap and no eat cooldown — predators can chain kills and
   // accumulate reserves freely.
+
+  // Spatial hashing (phase 8). Cell size near the largest query radius so
+  // each lookup touches O(1) cells regardless of population.
+  spatialCellSize: 90,
 
   // UI fade behaviour (configurable via the "config" popup slider).
   uiAutohideThreshold: 95,          // slider %; above this, auto-hide kicks in

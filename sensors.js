@@ -60,10 +60,16 @@ function fillVision(org, world) {
   // they cap each ray's reach; entities further than the wall are pruned.
   testWalls(org, world.width, world.height, range);
 
-  testEntities(org, world.food, CONFIG.foodRadius, SENSOR_TYPES.FOOD, 1, range, true);
-  testEntities(org, world.organisms, CONFIG.organismRadius, SENSOR_TYPES.ORG, 1, range, false);
-  // Phase 7: predators register on the same per-ray nearest-hit map.
-  testEntities(org, world.predators, CONFIG.predatorRadius, SENSOR_TYPES.PRED, 1, range, false);
+  // Broad-phase via spatial grids. Pad the query radius by a couple of
+  // pixels to compensate for entities that may have moved since the grid
+  // was rebuilt at the start of this tick.
+  const slop = 4;
+  const foodCandidates = world.gridFood.queryRadius(org.x, org.y, range + CONFIG.foodRadius + slop);
+  const orgCandidates  = world.gridOrgs.queryRadius(org.x, org.y, range + CONFIG.organismRadius + slop);
+  const predCandidates = world.gridPreds.queryRadius(org.x, org.y, range + CONFIG.predatorRadius + slop);
+  testEntities(org, foodCandidates, CONFIG.foodRadius, SENSOR_TYPES.FOOD, 1, range, true);
+  testEntities(org, orgCandidates,  CONFIG.organismRadius, SENSOR_TYPES.ORG,  1, range, false);
+  testEntities(org, predCandidates, CONFIG.predatorRadius, SENSOR_TYPES.PRED, 1, range, false);
 
   // Drawn barriers (phase 6). For each ray, only barriers OPAQUE FROM THE
   // ORGANISM'S SIDE compete for the nearest hit; transparent ones are

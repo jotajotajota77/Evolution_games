@@ -26,6 +26,11 @@ const state = {
   fpsAccum: 0,
   fpsFrames: 0,
   canvasEl: null,
+  // Follow-best camera (phase 8). The followed organism is re-picked each
+  // render as "the oldest alive" so the camera doesn't get stuck on a corpse.
+  followBest: false,
+  camX: 0,
+  camY: 0,
 };
 
 // ---- p5 sketch ----
@@ -81,7 +86,26 @@ const sketch = (p) => {
       for (let i = 0; i < subSteps; i++) state.world.update(dt);
     }
 
+    // Camera offset (follow mode). Recomputed every render so dead targets
+    // are replaced by the next-oldest organism.
+    let camX = 0, camY = 0;
+    if (state.followBest) {
+      const target = pickOldestOrganism(state.world);
+      if (target) {
+        camX = p.width / 2 - target.x;
+        camY = p.height / 2 - target.y;
+      }
+    }
+    state.camX = camX;
+    state.camY = camY;
+
+    // Trail-fade stays in screen space so the canvas always clears uniformly,
+    // even when the camera is translating. Entities are drawn in world space
+    // under p.translate.
     drawTrailFade(state.world.currentBgColor());
+
+    p.push();
+    p.translate(camX, camY);
     drawZones(state.world);
     drawHouses(state.world);
     drawBarriers(state.world);
@@ -89,6 +113,8 @@ const sketch = (p) => {
     drawOrganisms(state.world);
     drawPredators(state.world);
     drawPlacementPreview(getDrag());
+    p.pop();
+
     drawVignette();
     drawNightTint(state.world.daylight);
   };
@@ -647,6 +673,13 @@ function setupBottomBar() {
       updateSpeedButtons();
     });
   });
+  const followBtn = popups.world.querySelector('[data-action="follow-best"]');
+  followBtn.addEventListener('click', () => {
+    state.followBest = !state.followBest;
+    followBtn.textContent = state.followBest ? 'stop following' : 'follow best';
+    followBtn.classList.toggle('active', state.followBest);
+  });
+
   popups.world.querySelector('[data-action="reset"]').addEventListener('click', () => {
     state.world.reset();
     history.labels.length = 0;
@@ -751,6 +784,9 @@ function setupToolbar() {
   buttons.forEach((b) => {
     b.addEventListener('click', (e) => {
       e.stopPropagation();
+      // Placement tools translate the canvas-space pointer differently than
+      // the world-space drawing, so they can't mix with follow mode.
+      if (b.dataset.tool !== 'select') stopFollowing();
       setTool(b.dataset.tool);
     });
   });
@@ -763,6 +799,25 @@ function setupToolbar() {
 // ============================================================================
 // House placement flow
 // ============================================================================
+function pickOldestOrganism(world) {
+  let best = null;
+  let bestAge = -Infinity;
+  for (const o of world.organisms) {
+    if (o.ageSec > bestAge) { bestAge = o.ageSec; best = o; }
+  }
+  return best;
+}
+
+function stopFollowing() {
+  if (!state.followBest) return;
+  state.followBest = false;
+  const btn = document.querySelector('#popup-world [data-action="follow-best"]');
+  if (btn) {
+    btn.textContent = 'follow best';
+    btn.classList.remove('active');
+  }
+}
+
 function handlePlaceBarrier(x1, y1, x2, y2) {
   const w = state.world;
   const existingLineages = [...w.lineages.values()];

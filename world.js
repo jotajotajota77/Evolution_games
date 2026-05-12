@@ -4,6 +4,7 @@ import { Lineage } from './lineage.js';
 import { sampleInCircle } from './house.js';
 import { segmentsCross } from './barrier.js';
 import { Predator } from './predator.js';
+import { SpatialGrid } from './spatial.js';
 
 // A pellet of food. Each one stores the energy it grants — set at spawn-time
 // by the region that produced it (open world, house zone, or non-house zone).
@@ -68,6 +69,11 @@ export class World {
     this.barriers = [];               // user-drawn line barriers (phase 6)
     this.predators = [];              // scripted predators (phase 7)
 
+    // Broad-phase grids (phase 8). Rebuilt at the start of every update tick.
+    this.gridFood = new SpatialGrid(width, height, CONFIG.spatialCellSize);
+    this.gridOrgs = new SpatialGrid(width, height, CONFIG.spatialCellSize);
+    this.gridPreds = new SpatialGrid(width, height, CONFIG.spatialCellSize);
+
     this.tickSec = CONFIG.startAtNoon ? CONFIG.dayLengthSec / 2 : 0;
     this.foodSpawnAccumulator = 0;
     this.deathsByCause = { starvation: 0, age: 0, predation: 0 };
@@ -112,6 +118,9 @@ export class World {
       o.y = Math.min(Math.max(o.y, 0), h);
     }
     this.food = this.food.filter(f => f.x >= 0 && f.x <= w && f.y >= 0 && f.y <= h);
+    this.gridFood.resize(w, h);
+    this.gridOrgs.resize(w, h);
+    this.gridPreds.resize(w, h);
   }
 
   seed(count = CONFIG.initialPopulation) {
@@ -306,6 +315,14 @@ export class World {
     this.tickSec += dtSec;
     this._recomputeDayCycle();
 
+    // Rebuild spatial grids at the start of every tick. Subsequent reads
+    // (sensors, nearestFood, predator targeting) see consistent state for
+    // the duration of this tick; some staleness is acceptable since
+    // individual entities move only a couple of pixels per tick.
+    this.gridFood.rebuild(this.food);
+    this.gridOrgs.rebuild(this.organisms);
+    this.gridPreds.rebuild(this.predators);
+
     // --- Food spawn ---
     // Open-area pellets: try to land in non-house space. Failing 8 times means
     // the world is heavily covered; cap the accumulator to avoid bursts later.
@@ -386,11 +403,14 @@ export class World {
     return null;
   }
 
-  // Nearest food within `radius`. Linear scan; spatial hashing arrives in phase 8.
+  // Nearest food within `radius`. Uses the spatial grid: roughly O(1) per
+  // query regardless of food count.
   nearestFood(x, y, radius) {
     let best = null;
     let bestD2 = radius * radius;
-    for (const f of this.food) {
+    const candidates = this.gridFood.queryRadius(x, y, radius);
+    for (let i = 0; i < candidates.length; i++) {
+      const f = candidates[i];
       if (f.eaten) continue;
       const dx = f.x - x, dy = f.y - y;
       const d2 = dx * dx + dy * dy;

@@ -74,8 +74,12 @@ export class Predator {
 
     // --- Attack: every live organism within eat radius dies on this tick.
     //     No cooldown, no energy cap — kills stack directly into reserves.
-    const er2 = CONFIG.predatorEatRadius * CONFIG.predatorEatRadius;
-    for (const o of world.organisms) {
+    //     Spatial grid query first; pad by a few px for grid staleness.
+    const er = CONFIG.predatorEatRadius;
+    const er2 = er * er;
+    const nearby = world.gridOrgs.queryRadius(this.x, this.y, er + 4);
+    for (let i = 0; i < nearby.length; i++) {
+      const o = nearby[i];
       if (!o.alive) continue;
       const ddx = o.x - this.x;
       const ddy = o.y - this.y;
@@ -96,10 +100,12 @@ export class Predator {
 }
 
 function nearestPrey(pred, world) {
-  const range2 = CONFIG.predatorSenseRange * CONFIG.predatorSenseRange;
+  const range = CONFIG.predatorSenseRange;
   let best = null;
-  let bestD2 = range2;
-  for (const o of world.organisms) {
+  let bestD2 = range * range;
+  const candidates = world.gridOrgs.queryRadius(pred.x, pred.y, range + 4);
+  for (let i = 0; i < candidates.length; i++) {
+    const o = candidates[i];
     if (!o.alive) continue;
     const dx = o.x - pred.x;
     const dy = o.y - pred.y;
