@@ -1182,9 +1182,6 @@ function setupToolbar() {
   buttons.forEach((b) => {
     b.addEventListener('click', (e) => {
       e.stopPropagation();
-      // Placement tools translate the canvas-space pointer differently than
-      // the world-space drawing, so they can't mix with follow mode.
-      if (b.dataset.tool !== 'select') stopFollowing();
       setTool(b.dataset.tool);
     });
   });
