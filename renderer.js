@@ -124,6 +124,28 @@ export function drawHouses(world) {
   p.noStroke();
 }
 
+// Pulsing white ring drawn over a specific organism. Used by the
+// "follow best" toggle to mark the oldest alive organism without
+// dragging the camera around.
+export function drawOrganismHighlight(org) {
+  if (!p || !org || !org.alive) return;
+  const ctx = p.drawingContext;
+  const baseR = CONFIG.organismRadius * 2 + 6;
+  const pulse = 0.55 + 0.45 * Math.sin(performance.now() * 0.0035);
+  ctx.shadowBlur = 18 * pulse;
+  ctx.shadowColor = 'rgba(255, 255, 255, 0.85)';
+  p.noFill();
+  p.stroke(255, 255, 255, 160 + 80 * pulse);
+  p.strokeWeight(1.6);
+  p.circle(org.x, org.y, baseR * 2);
+  // Inner accent dot — keeps the marker visible even when the outer ring
+  // pulses faint.
+  p.fill(255, 255, 255, 220);
+  p.noStroke();
+  p.circle(org.x, org.y, 2.4);
+  ctx.shadowBlur = 0;
+}
+
 // Predators — bigger, saturated red, strong glow, tiny heading tick so the
 // user can see what they're chasing. Drawn over organisms.
 export function drawPredators(world) {
