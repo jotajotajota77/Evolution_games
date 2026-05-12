@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.23',
+  version: 'v1.24',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -86,16 +86,18 @@ export const CONFIG = {
   colorDriftSigma: 9,               // gaussian std-dev (per channel, per birth)
   colorDriftMax: 120,               // clamp |drift| per channel (0-255 scale)
 
-  // Phylogeny tracker (v1.17). Periodically the world looks at each species
+  // Phylogeny tracker (v1.17+). Periodically the world looks at each species
   // and, if the population's drift variance is high enough AND the species
   // is old enough AND each candidate child cluster has a reasonable size,
-  // splits it into two via principal-axis partition. The thresholds below
-  // exist so tiny or short-lived sub-clusters don't pollute the tree.
+  // splits it. The thresholds below exist so tiny or short-lived sub-
+  // clusters don't pollute the tree. Tightened in v1.24 after observing
+  // noisy trees with single-individual extinctions.
   phyloCheckIntervalSec: 4,         // how often to re-evaluate speciation
-  phyloMinAgeSec: 14,               // a species must live this long before splitting
-  phyloMinChildPop: 6,              // each child cluster must have >= this many orgs
-  phyloSplitStdThreshold: 22,       // total stddev of drift triggering a split
-  phyloMinDisplayPeakPop: 3,        // chart hides species that never reached this
+  phyloMinAgeSec: 20,               // a species must live this long before splitting
+  phyloMinChildPop: 8,              // each child cluster must have >= this many orgs
+  phyloSplitStdThreshold: 28,       // total stddev of drift triggering a split
+  phyloMinDisplayPeakPop: 8,        // chart hides species that never reached this
+  phyloMinDisplayLifespanSec: 12,   // extinct species must have lived this long to render
 
   // Lineage palette — used as default colors when the user creates new lineages.
   // Each entry suggests a name and an RGB triple. Users may pick any custom color.

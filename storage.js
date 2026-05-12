@@ -11,6 +11,20 @@ import { randomBinomial, deriveChildName } from './names.js';
 
 const STORAGE_KEY = 'evolution_save_v1';
 
+function snapshotPhylo(phylo) {
+  return {
+    mode: phylo.mode,
+    species: phylo.species.map((s) => ({
+      id: s.id, parentId: s.parentId, lineageId: s.lineageId,
+      color: [...s.color],
+      bornTick: s.bornTick, diedTick: s.diedTick,
+      peakPop: s.peakPop, currentPop: s.currentPop,
+      name: s.name,
+    })),
+    lineageRoots: [...phylo.lineageRoots.entries()],
+  };
+}
+
 export function hasSavedWorld() {
   try { return localStorage.getItem(STORAGE_KEY) != null; }
   catch (_) { return false; }
@@ -81,18 +95,11 @@ function serialize(w) {
       generation: o.generation,
       colorDrift: o.colorDrift ? [...o.colorDrift] : [0, 0, 0],
       speciesId: o.speciesId,
+      budSpeciesId: o.budSpeciesId,
       brain: Array.from(o.brain.weights),
     })),
-    phylo: {
-      species: w.phylo.species.map((s) => ({
-        id: s.id, parentId: s.parentId, lineageId: s.lineageId,
-        color: [...s.color],
-        bornTick: s.bornTick, diedTick: s.diedTick,
-        peakPop: s.peakPop, currentPop: s.currentPop,
-        name: s.name,
-      })),
-      lineageRoots: [...w.phylo.lineageRoots.entries()],
-    },
+    phylo: snapshotPhylo(w.phylo),
+    phyloBud: snapshotPhylo(w.phyloBud),
     predators: w.predators.map((p) => ({
       id: p.id, x: p.x, y: p.y, heading: p.heading, currentSpeed: p.currentSpeed,
       energy: p.energy, ageSec: p.ageSec,
@@ -170,18 +177,18 @@ function deserialize(d) {
   }
   ensureNextBarrierId(maxBarrierId + 1);
 
-  // Rebuild the phylogeny first so organisms can reference species by id.
-  if (d.phylo) {
-    w.phylo = new Phylo();
-    let maxSpeciesId = 0;
-    // Species in the snapshot are saved parent-before-child (insertion
-    // order in Phylo.species), so resolving names via a forward scan works.
+  // Rebuild both phylogenies so organisms can reference species by id.
+  // Each tracker has its own mode; for legacy saves (no phyloBud) we
+  // initialise fresh roots so the matriarchal chart works going forward.
+  let maxSpeciesId = 0;
+  const restorePhylo = (snap, mode) => {
+    const phylo = new Phylo(mode);
+    if (!snap) return phylo;
     const speciesById = new Map();
-    for (const sd of d.phylo.species || []) {
+    for (const sd of snap.species || []) {
       let name = sd.name;
       if (!name || name === 'default' || name === '?') {
         if (sd.parentId == null) {
-          // Root inherits the (possibly renamed) lineage name.
           const lin = w.lineages.get(sd.lineageId);
           name = lin ? lin.name : randomBinomial();
         } else {
@@ -193,18 +200,25 @@ function deserialize(d) {
       s.diedTick = sd.diedTick ?? null;
       s.peakPop = sd.peakPop || 0;
       s.currentPop = sd.currentPop || 0;
-      w.phylo.species.push(s);
+      phylo.species.push(s);
       speciesById.set(s.id, s);
       if (sd.id > maxSpeciesId) maxSpeciesId = sd.id;
     }
-    for (const [lid, sid] of d.phylo.lineageRoots || []) {
-      w.phylo.lineageRoots.set(lid, sid);
+    for (const [lid, sid] of snap.lineageRoots || []) {
+      phylo.lineageRoots.set(lid, sid);
     }
-    ensureNextSpeciesId(maxSpeciesId);
-  } else {
-    // Legacy save: rebuild fresh roots for every lineage.
-    w._rebuildPhylo();
+    return phylo;
+  };
+  w.phylo = restorePhylo(d.phylo, 'classic');
+  w.phyloBud = restorePhylo(d.phyloBud, 'budding');
+  // For legacy snapshots (no phyloBud), seed roots fresh so each existing
+  // lineage has a starting matriarchal root.
+  if (!d.phyloBud) {
+    for (const lin of w.lineages.values()) {
+      w.phyloBud.initLineageRoot(lin, w.tickSec);
+    }
   }
+  ensureNextSpeciesId(maxSpeciesId);
 
   for (const od of d.organisms || []) {
     const brain = new NeuralNet(undefined, new Float32Array(od.brain));
@@ -215,6 +229,7 @@ function deserialize(d) {
     o.ageSec = od.ageSec;
     o.generation = od.generation;
     o.speciesId = od.speciesId ?? w.phylo.lineageRoots.get(od.lineageId) ?? null;
+    o.budSpeciesId = od.budSpeciesId ?? w.phyloBud.lineageRoots.get(od.lineageId) ?? null;
     w.organisms.push(o);
   }
 

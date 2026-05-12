@@ -26,9 +26,10 @@ export class Organism {
     // birth accumulates a small gaussian step (see spawnChild).
     this.colorDrift = colorDrift ? [colorDrift[0], colorDrift[1], colorDrift[2]] : [0, 0, 0];
 
-    // Phylogeny node id. Set by world helpers (seedFoundersForHouse / seed)
-    // for founders; inherited by descendants in spawnChild.
+    // Phylogeny node ids — one per tracking mode (classic + budding).
+    // Set by world helpers for founders; inherited by descendants in spawnChild.
     this.speciesId = null;
+    this.budSpeciesId = null;
   }
 
   update(dtSec, world) {
@@ -148,6 +149,7 @@ export class Organism {
     child.energy = this.energy;
     child.generation = this.generation + 1;
     child.speciesId = this.speciesId;
+    child.budSpeciesId = this.budSpeciesId;
 
     this.wantsToReproduce = false;
     return child;

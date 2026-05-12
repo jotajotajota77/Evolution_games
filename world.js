@@ -74,11 +74,15 @@ export class World {
     this.lineages = new Map();
     this._ensureDefaultLineage();
 
-    // Phylogeny — every lineage gets a root species. Speciation events
-    // (drift-variance based) spawn children inside Phylo.tick().
-    this.phylo = new Phylo();
+    // Two phylogeny trackers in parallel:
+    //   phylo    — classic cladistics (splits, parent terminates)
+    //   phyloBud — matriarchal budding (parent stays alive, child buds off)
+    // The chart menu exposes both as separate visualisations.
+    this.phylo = new Phylo('classic');
+    this.phyloBud = new Phylo('budding');
     for (const lin of this.lineages.values()) {
       this.phylo.initLineageRoot(lin, 0);
+      this.phyloBud.initLineageRoot(lin, 0);
     }
 
     this.houses = [];
@@ -143,6 +147,7 @@ export class World {
   seed(count = CONFIG.initialPopulation) {
     // Default-lineage starter pop. New user lineages spawn via addHouse/seedFounders.
     const rootSpeciesId = this.phylo.lineageRoots.get(CONFIG.defaultLineage.id);
+    const rootBudId = this.phyloBud.lineageRoots.get(CONFIG.defaultLineage.id);
     for (let i = 0; i < count; i++) {
       const o = new Organism(
         Math.random() * this.width,
@@ -150,6 +155,7 @@ export class World {
         CONFIG.defaultLineage.id,
       );
       o.speciesId = rootSpeciesId ?? null;
+      o.budSpeciesId = rootBudId ?? null;
       this.organisms.push(o);
     }
     const initialFood = Math.min(CONFIG.foodMaxCount * 0.4, 200);
@@ -182,7 +188,8 @@ export class World {
     this.houses.length = 0;
     this.zones.length = 0;
     this.barriers.length = 0;
-    this.phylo = new Phylo();
+    this.phylo = new Phylo('classic');
+    this.phyloBud = new Phylo('budding');
   }
 
   _clearPopulationsAndCounters() {
@@ -200,12 +207,14 @@ export class World {
   }
 
   _rebuildPhylo() {
-    // Discard the entire species tree and start fresh — one root per
-    // existing lineage. Any leftover speciesId on legacy organisms (which
-    // are about to be wiped in reset anyway) is irrelevant.
-    this.phylo = new Phylo();
+    // Discard both species trees and start fresh — one root per existing
+    // lineage in each mode. Any leftover speciesId on legacy organisms
+    // (which are about to be wiped in reset anyway) is irrelevant.
+    this.phylo = new Phylo('classic');
+    this.phyloBud = new Phylo('budding');
     for (const lin of this.lineages.values()) {
       this.phylo.initLineageRoot(lin, this.tickSec);
+      this.phyloBud.initLineageRoot(lin, this.tickSec);
     }
   }
 
@@ -224,6 +233,7 @@ export class World {
   addLineage(lineage) {
     this.lineages.set(lineage.id, lineage);
     this.phylo.initLineageRoot(lineage, this.tickSec);
+    this.phyloBud.initLineageRoot(lineage, this.tickSec);
   }
 
   addHouse(house) {
@@ -377,10 +387,12 @@ export class World {
   // Spawns N founders for a house, with random brains, inside its zone.
   seedFoundersForHouse(house, count) {
     const rootSpeciesId = this.phylo.lineageRoots.get(house.lineageId);
+    const rootBudId = this.phyloBud.lineageRoots.get(house.lineageId);
     for (let i = 0; i < count; i++) {
       const pt = sampleInCircle(house.x, house.y, house.radius * 0.92);
       const o = new Organism(pt.x, pt.y, house.lineageId);
       o.speciesId = rootSpeciesId ?? null;
+      o.budSpeciesId = rootBudId ?? null;
       this.organisms.push(o);
     }
   }
@@ -504,8 +516,10 @@ export class World {
       this.food = remaining;
     }
 
-    // Phylogeny tracking — internal interval, cheap when it skips.
+    // Phylogeny tracking — two trees ticked side by side, each with its
+    // own speciation rule. Both are no-ops between intervals.
     this.phylo.tick(this, dtSec);
+    this.phyloBud.tick(this, dtSec);
   }
 
   sampleOpenPoint() {

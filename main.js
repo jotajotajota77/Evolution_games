@@ -170,7 +170,39 @@ const history = {
   // house, 'house-<id>' for each placed house. New keys are padded with
   // nulls so their line starts at the current time instead of the left edge.
   popByZone: new Map(),
+  // Per-species population over time, one map per phylo tracking mode.
+  // Keys are species ids (globally unique across both trees).
+  popBySpecies: new Map(),
+  popBySpeciesBud: new Map(),
 };
+
+// Same gate the renderer applies to decide whether a species shows up.
+// Roots always pass; everything else needs a sustained peak AND, if extinct,
+// enough lifespan that it isn't noise.
+function speciesQualifies(s) {
+  if (s.parentId == null) return true;
+  if (s.peakPop < CONFIG.phyloMinDisplayPeakPop) return false;
+  if (s.diedTick != null) {
+    const lifespan = s.diedTick - s.bornTick;
+    if (lifespan < CONFIG.phyloMinDisplayLifespanSec) return false;
+  }
+  return true;
+}
+
+// Ensures every qualifying species has a history bucket (padded with nulls
+// up to the current frame), then pushes its currentPop. Extinct species
+// keep producing 0 entries so the line touches the axis after death.
+function trackSpeciesPop(phylo, map, padLen) {
+  for (const s of phylo.species) {
+    if (!speciesQualifies(s)) continue;
+    if (!map.has(s.id)) map.set(s.id, new Array(padLen).fill(null));
+  }
+  for (const s of phylo.species) {
+    const arr = map.get(s.id);
+    if (!arr) continue;
+    pushBoundedSeries(arr, s.currentPop);
+  }
+}
 
 function pushBoundedSeries(arr, val) {
   arr.push(val);
@@ -182,6 +214,8 @@ function resetHistoryBuffers() {
   history.popByLin.clear();
   history.enByLin.clear();
   history.popByZone.clear();
+  history.popBySpecies.clear();
+  history.popBySpeciesBud.clear();
 }
 
 function ensureLineageHistory(lin) {
@@ -242,6 +276,11 @@ function tickHistory() {
   for (const h of w.houses) {
     pushBoundedSeries(history.popByZone.get(`house-${h.id}`), houseCounts.get(h.id));
   }
+
+  // Per-species pop (both trees). Each tree owns its own species so we
+  // track them in separate maps keyed by globally-unique species id.
+  trackSpeciesPop(w.phylo, history.popBySpecies, padLen);
+  trackSpeciesPop(w.phyloBud, history.popBySpeciesBud, padLen);
 
   // Refresh open chart windows.
   for (const entry of openCharts.values()) {
@@ -451,27 +490,70 @@ const chartFactories = {
       return { chart: null, update };
     },
   }),
-  phylo: () => {
-    // The phylogeny tree needs room to breathe — open near-fullscreen,
-    // centred. The user can still drag or close it.
-    const w = Math.min(1280, Math.max(540, window.innerWidth - 40));
-    const h = Math.min(820, Math.max(360, window.innerHeight - 120));
-    return {
-      title: 'phylogeny tree',
-      width: w,
-      height: h,
-      x: Math.max(8, (window.innerWidth - w) / 2),
-      y: Math.max(8, (window.innerHeight - h - 80) / 2),
-      factory: (host) => {
-        host.innerHTML = '<div class="fw-phylo"></div>';
-        const treeEl = host.querySelector('.fw-phylo');
-        const update = () => renderPhyloTree(treeEl);
-        update();
-        return { chart: null, update };
-      },
-    };
-  },
+  phylo:        () => phyloSpec('classic', 'phylogeny (cladistic)'),
+  phyloBud:     () => phyloSpec('budding',  'phylogeny (matriarchal)'),
+  speciesPop:    () => speciesPopSpec('classic', 'population by species (cladistic)'),
+  speciesPopBud: () => speciesPopSpec('budding',  'population by species (matriarchal)'),
 };
+
+// One line per species that passes speciesQualifies, sourced from the
+// requested phylo tree. Colour matches the species' computed colour (lineage
+// base + centroid drift at speciation time).
+function speciesPopSpec(mode, title) {
+  return {
+    title,
+    factory: (host) => {
+      const chart = makeLineChartCanvas(host);
+      const update = () => {
+        const w = state.world;
+        const phylo = mode === 'budding' ? w.phyloBud : w.phylo;
+        const map = mode === 'budding' ? history.popBySpeciesBud : history.popBySpecies;
+        chart.data.labels = history.labels;
+        const datasets = [];
+        for (const s of phylo.species) {
+          if (!speciesQualifies(s)) continue;
+          const arr = map.get(s.id);
+          if (!arr) continue;
+          datasets.push({
+            label: s.name,
+            data: arr,
+            borderColor: rgbToCss(s.color),
+            backgroundColor: rgbToCss(s.color, 0.1),
+            fill: false,
+          });
+        }
+        chart.data.datasets = datasets;
+        chart.update('none');
+      };
+      update();
+      return { chart, update };
+    },
+  };
+}
+
+// Shared spec for both phylogeny charts. The only difference is which
+// Phylo instance on the world we render.
+function phyloSpec(mode, title) {
+  const w = Math.min(1280, Math.max(540, window.innerWidth - 40));
+  const h = Math.min(820, Math.max(360, window.innerHeight - 120));
+  return {
+    title,
+    width: w,
+    height: h,
+    x: Math.max(8, (window.innerWidth - w) / 2),
+    y: Math.max(8, (window.innerHeight - h - 80) / 2),
+    factory: (host) => {
+      host.innerHTML = '<div class="fw-phylo"></div>';
+      const treeEl = host.querySelector('.fw-phylo');
+      const update = () => {
+        const phylo = mode === 'budding' ? state.world.phyloBud : state.world.phylo;
+        renderPhyloTree(treeEl, phylo);
+      };
+      update();
+      return { chart: null, update };
+    },
+  };
+}
 
 // Phylogeny tree, rendered as an SVG horizontal tree:
 //   - X axis is time. Root at the species' bornTick, line ends at diedTick
@@ -487,12 +569,23 @@ const chartFactories = {
 // don't crowd the chart (roots always shown).
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-function renderPhyloTree(host) {
+function renderPhyloTree(host, phylo) {
   const w = state.world;
-  if (!w || !w.phylo) return;
+  if (!w || !phylo) return;
 
-  const visible = w.phylo.species.filter((s) =>
-    s.peakPop >= CONFIG.phyloMinDisplayPeakPop || s.parentId == null);
+  // Display filter:
+  //   - Root nodes are always shown
+  //   - Other species must have hit phyloMinDisplayPeakPop at some point
+  //   - Extinct species must have lived at least phyloMinDisplayLifespanSec
+  const visible = phylo.species.filter((s) => {
+    if (s.parentId == null) return true;
+    if (s.peakPop < CONFIG.phyloMinDisplayPeakPop) return false;
+    if (s.diedTick != null) {
+      const lifespan = s.diedTick - s.bornTick;
+      if (lifespan < CONFIG.phyloMinDisplayLifespanSec) return false;
+    }
+    return true;
+  });
 
   host.innerHTML = '';
   if (visible.length === 0) {
@@ -596,21 +689,23 @@ function renderPhyloTree(host) {
 
   const rgba = (c, a = 1) => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${a})`;
 
-  // Vertical connectors first so they sit under horizontal lines.
+  // Vertical connectors: drawn at each child's bornTick from the parent's
+  // y to the child's y. Works uniformly for classic splits (parent dies at
+  // child.bornTick) and matriarchal budding (parent continues past it).
+  const byId = new Map();
+  for (const s of visible) byId.set(s.id, s);
   for (const s of visible) {
-    const kids = childrenOf.get(s.id) || [];
-    if (kids.length < 2) continue;
-    const px = xScale(s.diedTick ?? w.tickSec);
-    let yMin = Infinity, yMax = -Infinity;
-    for (const k of kids) {
-      const ky = yScale(yPos.get(k.id));
-      if (ky < yMin) yMin = ky;
-      if (ky > yMax) yMax = ky;
-    }
+    if (s.parentId == null) continue;
+    const parent = byId.get(s.parentId);
+    if (!parent) continue;
+    const py = yScale(yPos.get(parent.id));
+    const cy = yScale(yPos.get(s.id));
+    if (Math.abs(py - cy) < 0.5) continue;
+    const x = xScale(s.bornTick);
     const line = document.createElementNS(SVG_NS, 'line');
-    line.setAttribute('x1', px); line.setAttribute('x2', px);
-    line.setAttribute('y1', yMin); line.setAttribute('y2', yMax);
-    line.setAttribute('stroke', rgba(s.color, 0.55));
+    line.setAttribute('x1', x); line.setAttribute('x2', x);
+    line.setAttribute('y1', py); line.setAttribute('y2', cy);
+    line.setAttribute('stroke', rgba(parent.color, 0.55));
     line.setAttribute('stroke-width', 1.8);
     line.setAttribute('stroke-linecap', 'round');
     svg.appendChild(line);
