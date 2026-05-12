@@ -46,8 +46,26 @@ export function genusOf(name) {
   return (name || '').trim().split(/\s+/)[0] || 'Incertae';
 }
 
+// FNV-1a 32-bit string hash. Used to derive deterministic epithet indices
+// from a seed so two phylo trees that speciate from the same event roll
+// the same name.
+function fnvHash(s) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
 // Builds a sub-species name keeping the parent genus and picking a new
-// epithet at random.
-export function deriveChildName(parentName) {
-  return `${genusOf(parentName)} ${randomEpithet()}`;
+// epithet. When `seed` is provided the epithet is chosen deterministically
+// (FNV hash of the seed → epithet index), so cladistic and matriarchal
+// trees that share the same lineage + tick + role roll the same name.
+export function deriveChildName(parentName, seed) {
+  const genus = genusOf(parentName);
+  const epithet = seed
+    ? EPITHETS[fnvHash(seed) % EPITHETS.length]
+    : pick(EPITHETS);
+  return `${genus} ${epithet}`;
 }

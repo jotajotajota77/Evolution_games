@@ -30,7 +30,7 @@ export function drawTrailFade(rgb = CONFIG.worldBgDay) {
   if (!p) return;
   p.noStroke();
   p.drawingContext.shadowBlur = 0;
-  p.fill(rgb[0], rgb[1], rgb[2], 38);
+  p.fill(rgb[0], rgb[1], rgb[2], CONFIG.trailFadeAlpha);
   p.rect(0, 0, p.width, p.height);
 }
 

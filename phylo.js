@@ -151,12 +151,31 @@ export class Phylo {
   }
 
   _splitClassic(parent, split, world) {
+    // Label one half "staying" (low |drift|, closer to lineage base) and
+    // the other "branching" (high |drift|). Both halves form new species,
+    // but the seeds are deterministic so the matriarchal tree picks the
+    // same branching name from the same event.
+    let absAbove = 0, absBelow = 0;
+    for (const o of split.above) absAbove += Math.abs(o.colorDrift[split.axis]);
+    for (const o of split.below) absBelow += Math.abs(o.colorDrift[split.axis]);
+    absAbove /= split.above.length;
+    absBelow /= split.below.length;
+    const staying   = absAbove < absBelow ? split.above : split.below;
+    const branching = absAbove < absBelow ? split.below : split.above;
+
     const lin = world.lineages.get(parent.lineageId);
     const base = lin ? lin.color : [200, 200, 220];
-    const childA = this._makeChild(parent, split.above, base, world.tickSec);
-    const childB = this._makeChild(parent, split.below, base, world.tickSec);
-    for (const o of split.above) o[this.idField] = childA.id;
-    for (const o of split.below) o[this.idField] = childB.id;
+    const tickKey = Math.round(world.tickSec * 10);
+    const seedBranch = `${parent.lineageId}-${tickKey}-branching`;
+    const seedStay   = `${parent.lineageId}-${tickKey}-staying`;
+
+    const childStay = this._makeChild(parent, staying, base, world.tickSec,
+      deriveChildName(parent.name, seedStay));
+    const childBranch = this._makeChild(parent, branching, base, world.tickSec,
+      deriveChildName(parent.name, seedBranch));
+
+    for (const o of staying)   o[this.idField] = childStay.id;
+    for (const o of branching) o[this.idField] = childBranch.id;
     parent.diedTick = world.tickSec;
   }
 
@@ -173,12 +192,17 @@ export class Phylo {
     const branching = absA >= absB ? split.above : split.below;
     const lin = world.lineages.get(parent.lineageId);
     const base = lin ? lin.color : [200, 200, 220];
-    const child = this._makeChild(parent, branching, base, world.tickSec);
+    // Same seed shape as cladistic's branching child — names match across
+    // trees for the same speciation event.
+    const tickKey = Math.round(world.tickSec * 10);
+    const seedBranch = `${parent.lineageId}-${tickKey}-branching`;
+    const child = this._makeChild(parent, branching, base, world.tickSec,
+      deriveChildName(parent.name, seedBranch));
     for (const o of branching) o[this.idField] = child.id;
     // staying-half organisms keep parent's id implicitly.
   }
 
-  _makeChild(parent, orgs, base, tickSec) {
+  _makeChild(parent, orgs, base, tickSec, overrideName) {
     let cx = 0, cy = 0, cz = 0;
     for (const o of orgs) {
       cx += o.colorDrift[0]; cy += o.colorDrift[1]; cz += o.colorDrift[2];
@@ -189,9 +213,9 @@ export class Phylo {
       clamp255(base[1] + cy),
       clamp255(base[2] + cz),
     ];
+    const name = overrideName ?? deriveChildName(parent.name);
     const s = new PhyloSpecies(
-      nextSpeciesId++, parent.id, parent.lineageId, color, tickSec,
-      deriveChildName(parent.name),
+      nextSpeciesId++, parent.id, parent.lineageId, color, tickSec, name,
     );
     s.currentPop = orgs.length;
     s.peakPop = orgs.length;

@@ -1,14 +1,18 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.25',
+  version: 'v1.26',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
   // Sky colors at noon vs midnight — exaggerated for a clear day/night feel.
   worldBgDay:   [22, 32, 56],
   worldBgNight: [2, 3, 9],
-  trailFade:    'rgba(10, 10, 20, 0.15)', // legacy; renderer uses sky color now
+  // Per-frame trail-fade alpha (0..255). Higher = faster fade. v1.26 raised
+  // this from 38 to 110 because long-running sims were leaving heavy
+  // permanent smears on the canvas; the gentle motion-blur look is now
+  // restricted to a couple of frames.
+  trailFadeAlpha: 110,
   nightDimAlpha: 0.55,               // strength of per-frame night overlay at midnight
 
   // Time / loop
@@ -92,10 +96,13 @@ export const CONFIG = {
   // splits it. The thresholds below exist so tiny or short-lived sub-
   // clusters don't pollute the tree. Tightened in v1.24 after observing
   // noisy trees with single-individual extinctions.
-  phyloCheckIntervalSec: 4,         // how often to re-evaluate speciation
-  phyloMinAgeSec: 20,               // a species must live this long before splitting
+  // Speciation criteria — looser than v1.24 so descendant species can also
+  // speciate further (canopy grows beyond a single split layer); the
+  // display filter (peakPop + lifespan) is what guards pollution.
+  phyloCheckIntervalSec: 4,
+  phyloMinAgeSec: 14,               // a species must live this long before splitting
   phyloMinChildPop: 8,              // each child cluster must have >= this many orgs
-  phyloSplitStdThreshold: 28,       // total stddev of drift triggering a split
+  phyloSplitStdThreshold: 22,       // total stddev of drift triggering a split
   phyloMinDisplayPeakPop: 8,        // chart hides species that never reached this
   phyloMinDisplayLifespanSec: 12,   // extinct species must have lived this long to render
 

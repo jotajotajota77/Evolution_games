@@ -610,21 +610,16 @@ function renderPhyloTree(host, phylo) {
   for (const arr of childrenOf.values()) arr.sort((a, b) => a.bornTick - b.bornTick);
   roots.sort((a, b) => a.lineageId - b.lineageId || a.bornTick - b.bornTick);
 
-  // DFS Y assignment: leaves consume integer slots; internals get the mean
-  // of their children's slots.
+  // Every species gets its own row — DFS pre-order. Avoids the collision
+  // that happened in matriarchal mode where a parent with a single child
+  // ended up at the child's Y (mean of one value = that value). Also
+  // simplifies the connector logic (always parent.y → child.y).
   const yPos = new Map();
   let nextLeaf = 0;
   function dfs(node) {
+    yPos.set(node.id, nextLeaf++);
     const kids = childrenOf.get(node.id) || [];
-    if (kids.length === 0) {
-      const my = nextLeaf++;
-      yPos.set(node.id, my);
-      return my;
-    }
-    const ys = kids.map(dfs);
-    const my = (ys[0] + ys[ys.length - 1]) / 2;
-    yPos.set(node.id, my);
-    return my;
+    for (const k of kids) dfs(k);
   }
   for (const r of roots) {
     dfs(r);
