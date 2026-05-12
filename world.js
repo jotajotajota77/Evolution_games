@@ -4,9 +4,44 @@ import { Lineage } from './lineage.js';
 import { sampleInCircle } from './house.js';
 
 // A pellet of food. Each one stores the energy it grants — set at spawn-time
-// by the region that produced it (open world or a specific house zone).
+// by the region that produced it (open world, house zone, or non-house zone).
 function makeFood(x, y, energy) {
   return { x, y, eaten: false, phase: Math.random() * Math.PI * 2, energy };
+}
+
+// Per-region food spawn — works for both houses and non-house zones since
+// both expose .x .y .radius .zone.{foodDensity,foodEnergy} .foodSpawnAccumulator.
+function spawnFoodInRegions(world, regions, dtSec) {
+  for (let i = 0; i < regions.length; i++) {
+    const r = regions[i];
+    const rate = r.zone.foodDensity * (r.area() / 10000);
+    r.foodSpawnAccumulator += rate * dtSec;
+    while (r.foodSpawnAccumulator >= 1 && world.food.length < CONFIG.foodMaxCount) {
+      const pt = sampleInCircle(r.x, r.y, r.radius * 0.97);
+      world.food.push(makeFood(pt.x, pt.y, r.zone.foodEnergy));
+      r.foodSpawnAccumulator -= 1;
+    }
+    if (world.food.length >= CONFIG.foodMaxCount) r.foodSpawnAccumulator = 0;
+  }
+}
+
+// Shared logic: any region (house or zone) the organism's lineage isn't
+// allowed into deflects it back to the perimeter and costs a little energy.
+function bounceFromList(org, regions) {
+  for (let i = 0; i < regions.length; i++) {
+    const r = regions[i];
+    if (r.isAllowed(org.lineageId)) continue;
+    const dx = org.x - r.x;
+    const dy = org.y - r.y;
+    const distSq = dx * dx + dy * dy;
+    if (distSq >= r.radius * r.radius) continue;
+    const dist = Math.sqrt(distSq) || 0.0001;
+    const push = (r.radius - dist) + 0.5;
+    org.x += (dx / dist) * push;
+    org.y += (dy / dist) * push;
+    org.heading = Math.atan2(dy, dx);
+    org.energy -= CONFIG.barrierHitEnergyCost;
+  }
 }
 
 export class World {
@@ -27,6 +62,7 @@ export class World {
     this.lineages.set(def.id, def);
 
     this.houses = [];
+    this.zones = [];                  // non-house zones (phase 5)
 
     this.tickSec = CONFIG.startAtNoon ? CONFIG.dayLengthSec / 2 : 0;
     this.foodSpawnAccumulator = 0;
@@ -100,6 +136,7 @@ export class World {
     // Only living state is cleared. Reset accumulators on houses so they don't
     // burst-spawn after pause-resume.
     for (const h of this.houses) h.foodSpawnAccumulator = 0;
+    for (const z of this.zones) z.foodSpawnAccumulator = 0;
     this.tickSec = CONFIG.startAtNoon ? CONFIG.dayLengthSec / 2 : 0;
     this._recomputeDayCycle();
     this.foodSpawnAccumulator = 0;
@@ -125,6 +162,10 @@ export class World {
     }
   }
 
+  addZone(zone) {
+    this.zones.push(zone);
+  }
+
   // Spawns N founders for a house, with random brains, inside its zone.
   seedFoundersForHouse(house, count) {
     for (let i = 0; i < count; i++) {
@@ -142,36 +183,31 @@ export class World {
     return null;
   }
 
+  zoneContaining(x, y) {
+    for (let i = 0; i < this.zones.length; i++) {
+      if (this.zones[i].contains(x, y)) return this.zones[i];
+    }
+    return null;
+  }
+
   // Pushes an organism out of any zone whose access list excludes its lineage.
   // Called from organism.update after movement; the barrier is enforced as a
   // hard collision (project to perimeter, deflect heading outward, small
   // energy penalty).
   enforceZoneAccess(org) {
-    for (let i = 0; i < this.houses.length; i++) {
-      const h = this.houses[i];
-      if (h.isAllowed(org.lineageId)) continue;
-      const dx = org.x - h.x;
-      const dy = org.y - h.y;
-      const distSq = dx * dx + dy * dy;
-      if (distSq >= h.radius * h.radius) continue;
-      const dist = Math.sqrt(distSq) || 0.0001;
-      // Project outward to just past the perimeter so we don't get re-trapped
-      // on the next frame by floating-point error.
-      const push = (h.radius - dist) + 0.5;
-      org.x += (dx / dist) * push;
-      org.y += (dy / dist) * push;
-      // Deflect heading to point straight away from the zone centre.
-      org.heading = Math.atan2(dy, dx);
-      org.energy -= CONFIG.barrierHitEnergyCost;
-    }
+    bounceFromList(org, this.houses);
+    bounceFromList(org, this.zones);
   }
 
-  // Decay multiplier at a point. With overlapping zones the most recently
-  // placed house wins (last writer); documented as the convention.
+  // Decay multiplier at a point. With overlapping regions, the last writer
+  // wins (houses first, then zones — zones overlay houses on collision).
   zoneDecayMultiplierAt(x, y) {
     let mult = 1;
     for (let i = 0; i < this.houses.length; i++) {
       if (this.houses[i].contains(x, y)) mult = this.houses[i].zone.decayMultiplier;
+    }
+    for (let i = 0; i < this.zones.length; i++) {
+      if (this.zones[i].contains(x, y)) mult = this.zones[i].zone.decayMultiplier;
     }
     return mult;
   }
@@ -197,17 +233,8 @@ export class World {
     if (this.food.length >= CONFIG.foodMaxCount) this.foodSpawnAccumulator = 0;
 
     // Per-house pellets: density is in spawns/sec per 100x100-px tile.
-    for (let i = 0; i < this.houses.length; i++) {
-      const h = this.houses[i];
-      const rate = h.zone.foodDensity * (h.area() / 10000);
-      h.foodSpawnAccumulator += rate * dtSec;
-      while (h.foodSpawnAccumulator >= 1 && this.food.length < CONFIG.foodMaxCount) {
-        const pt = sampleInCircle(h.x, h.y, h.radius * 0.97);
-        this.food.push(makeFood(pt.x, pt.y, h.zone.foodEnergy));
-        h.foodSpawnAccumulator -= 1;
-      }
-      if (this.food.length >= CONFIG.foodMaxCount) h.foodSpawnAccumulator = 0;
-    }
+    spawnFoodInRegions(this, this.houses, dtSec);
+    spawnFoodInRegions(this, this.zones, dtSec);
 
     // --- Organisms ---
     const newBorns = [];
@@ -253,7 +280,9 @@ export class World {
     for (let i = 0; i < 8; i++) {
       const x = Math.random() * this.width;
       const y = Math.random() * this.height;
-      if (!this.houseContaining(x, y)) return { x, y };
+      if (this.houseContaining(x, y)) continue;
+      if (this.zoneContaining(x, y)) continue;
+      return { x, y };
     }
     return null;
   }

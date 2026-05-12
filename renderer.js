@@ -70,6 +70,28 @@ export function drawOrganisms(world) {
   ctx.shadowBlur = 0;
 }
 
+// Non-house zones: subtle filled disc with a dashed outline so it visually
+// reads as "a rule region without a fortified wall". Drawn before houses so
+// houses overlay them if they overlap.
+export function drawZones(world) {
+  if (!p || !world.zones.length) return;
+  const ctx = p.drawingContext;
+  for (const z of world.zones) {
+    const [r, g, b] = z.color;
+    p.noStroke();
+    p.fill(r, g, b, 16);
+    p.circle(z.x, z.y, z.radius * 2);
+
+    p.noFill();
+    p.stroke(r, g, b, 90);
+    p.strokeWeight(0.9);
+    ctx.setLineDash([5, 4]);
+    p.circle(z.x, z.y, z.radius * 2);
+  }
+  ctx.setLineDash([]);
+  p.noStroke();
+}
+
 // Houses: translucent fill (zone tint) + soft inner border + faint outer ring
 // representing the auto barrier. Drawn before organisms so they overlay it.
 export function drawHouses(world) {

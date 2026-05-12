@@ -491,7 +491,7 @@ body.placing #canvas-host canvas { cursor: crosshair; }
 
 #modal-backdrop.hidden { display: none; }
 
-#modal {
+.modal {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -503,7 +503,9 @@ body.placing #canvas-host canvas { cursor: crosshair; }
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
 }
 
-#modal h2 {
+.modal.hidden { display: none; }
+
+.modal h2 {
   font-size: 13px;
   letter-spacing: 0.18em;
   text-transform: uppercase;

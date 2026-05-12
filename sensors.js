@@ -146,5 +146,12 @@ export function computeSensors(org, world, out) {
       out[ZONE_BASE] = 1;
     }
   }
-  // ZONE_BASE+1 (foreign non-house zone) stays zero — phase 5.
+  // ZONE_BASE+1 (33): inside any non-house zone — signals "altered rules here"
+  // regardless of which lineage owns the zone.
+  for (let i = 0; i < world.zones.length; i++) {
+    if (world.zones[i].contains(org.x, org.y)) {
+      out[ZONE_BASE + 1] = 1;
+      break;
+    }
+  }
 }

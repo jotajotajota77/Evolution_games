@@ -2,6 +2,19 @@ import { CONFIG } from './config.js';
 import { rgbToHex, hexToRgb } from './lineage.js';
 import { setModalOpen } from './tools.js';
 
+function showBackdrop(modalId) {
+  document.getElementById('modal-backdrop').classList.remove('hidden');
+  for (const m of document.querySelectorAll('#modal-backdrop .modal')) {
+    m.classList.toggle('hidden', m.id !== modalId);
+  }
+  setModalOpen(true);
+}
+
+function hideBackdrop() {
+  document.getElementById('modal-backdrop').classList.add('hidden');
+  setModalOpen(false);
+}
+
 // Opens the new-house modal pre-filled with suggested defaults. On confirm,
 // invokes onConfirm with the parsed form data (including [r,g,b] color and
 // the Set of extra-allowed lineage ids). On cancel, invokes onCancel.
@@ -10,11 +23,10 @@ import { setModalOpen } from './tools.js';
 // One checkbox per existing lineage is rendered in the "access" section.
 // The lineage being created is always implicitly allowed by the caller.
 export function showHouseModal(suggested, existingLineages, onConfirm, onCancel) {
-  const backdrop = document.getElementById('modal-backdrop');
   const form = document.getElementById('house-form');
   const d = CONFIG.houseDefaults;
 
-  renderAccessList([...existingLineages]);
+  renderAccessList('access-list', [...existingLineages]);
 
   form.elements['name'].value = suggested.name || '';
   form.elements['color'].value = rgbToHex(suggested.color || [127, 169, 255]);
@@ -26,8 +38,7 @@ export function showHouseModal(suggested, existingLineages, onConfirm, onCancel)
   form.elements['transFromInside'].checked = d.transparentFromInside;
   form.elements['transFromOutside'].checked = d.transparentFromOutside;
 
-  backdrop.classList.remove('hidden');
-  setModalOpen(true);
+  showBackdrop('house-modal');
   // Defer focus so the modal is laid out first (avoids jumpy autoscroll).
   requestAnimationFrame(() => form.elements['name'].focus());
 
@@ -60,8 +71,7 @@ export function showHouseModal(suggested, existingLineages, onConfirm, onCancel)
   const cancelBtn = document.getElementById('btn-modal-cancel');
 
   function cleanup() {
-    backdrop.classList.add('hidden');
-    setModalOpen(false);
+    hideBackdrop();
     form.removeEventListener('submit', submit);
     cancelBtn.removeEventListener('click', cancel);
   }
@@ -70,8 +80,58 @@ export function showHouseModal(suggested, existingLineages, onConfirm, onCancel)
   cancelBtn.addEventListener('click', cancel);
 }
 
-function renderAccessList(lineages) {
-  const host = document.getElementById('access-list');
+// Opens the new-zone modal. Zones have no name/colour-coded lineage; if no
+// access checkboxes are ticked, the zone is open to everyone.
+export function showZoneModal(existingLineages, onConfirm, onCancel) {
+  const form = document.getElementById('zone-form');
+  const d = CONFIG.zoneDefaults;
+
+  renderAccessList('zone-access-list', [...existingLineages]);
+
+  form.elements['color'].value = rgbToHex(d.color);
+  form.elements['foodDensity'].value = d.foodDensity;
+  form.elements['foodEnergy'].value = d.foodEnergy;
+  form.elements['decayMult'].value = d.decayMultiplier;
+  form.elements['predatorsAllowed'].checked = d.predatorsAllowed;
+
+  showBackdrop('zone-modal');
+
+  const submit = (e) => {
+    e.preventDefault();
+    const allowedLineages = new Set();
+    document.querySelectorAll('#zone-access-list input[type="checkbox"]:checked')
+      .forEach((cb) => allowedLineages.add(parseInt(cb.dataset.lineageId, 10)));
+    const data = {
+      color: hexToRgb(form.elements['color'].value),
+      foodDensity: clampNum(form.elements['foodDensity'].value, 0, 50, d.foodDensity),
+      foodEnergy: clampNum(form.elements['foodEnergy'].value, 1, 200, d.foodEnergy),
+      decayMultiplier: clampNum(form.elements['decayMult'].value, 0, 5, d.decayMultiplier),
+      predatorsAllowed: form.elements['predatorsAllowed'].checked,
+      allowedLineages,
+    };
+    cleanup();
+    onConfirm(data);
+  };
+
+  const cancel = () => {
+    cleanup();
+    if (onCancel) onCancel();
+  };
+
+  const cancelBtn = document.getElementById('btn-zone-cancel');
+
+  function cleanup() {
+    hideBackdrop();
+    form.removeEventListener('submit', submit);
+    cancelBtn.removeEventListener('click', cancel);
+  }
+
+  form.addEventListener('submit', submit);
+  cancelBtn.addEventListener('click', cancel);
+}
+
+function renderAccessList(hostId, lineages) {
+  const host = document.getElementById(hostId);
   host.innerHTML = '';
   if (lineages.length === 0) {
     const empty = document.createElement('div');

@@ -10,6 +10,7 @@ const state = {
 
 const listeners = {
   onPlaceHouse: null, // (x, y, radius) => void
+  onPlaceZone:  null, // (x, y, radius) => void
   onToolChange: null, // (toolName) => void
 };
 
@@ -37,6 +38,10 @@ export function onPlaceHouse(cb) {
   listeners.onPlaceHouse = cb;
 }
 
+export function onPlaceZone(cb) {
+  listeners.onPlaceZone = cb;
+}
+
 export function onToolChange(cb) {
   listeners.onToolChange = cb;
 }
@@ -44,8 +49,10 @@ export function onToolChange(cb) {
 // --- Mouse handlers wired by main.js into the p5 sketch ---
 export function onMouseDown(x, y) {
   if (state.modalOpen) return;
-  if (state.current === 'house') {
-    state.drag = { startX: x, startY: y, currentX: x, currentY: y };
+  if (state.current === 'house' || state.current === 'zone') {
+    // Snapshot the active tool on the drag so a quick mid-drag tool switch
+    // doesn't reroute the placement.
+    state.drag = { startX: x, startY: y, currentX: x, currentY: y, tool: state.current };
   }
 }
 
@@ -57,16 +64,21 @@ export function onMouseMove(x, y) {
 }
 
 export function onMouseUp() {
-  if (state.drag && state.current === 'house') {
-    const dx = state.drag.currentX - state.drag.startX;
-    const dy = state.drag.currentY - state.drag.startY;
-    const raw = Math.hypot(dx, dy);
+  if (!state.drag) return;
+  const d = state.drag;
+  const raw = Math.hypot(d.currentX - d.startX, d.currentY - d.startY);
+  if (d.tool === 'house') {
     const radius = Math.max(CONFIG.houseMinRadius, Math.min(CONFIG.houseMaxRadius, raw));
     if (raw >= CONFIG.houseMinRadius / 2 && listeners.onPlaceHouse) {
-      listeners.onPlaceHouse(state.drag.startX, state.drag.startY, radius);
+      listeners.onPlaceHouse(d.startX, d.startY, radius);
     }
-    state.drag = null;
+  } else if (d.tool === 'zone') {
+    const radius = Math.max(CONFIG.zoneMinRadius, Math.min(CONFIG.zoneMaxRadius, raw));
+    if (raw >= CONFIG.zoneMinRadius / 2 && listeners.onPlaceZone) {
+      listeners.onPlaceZone(d.startX, d.startY, radius);
+    }
   }
+  state.drag = null;
 }
 
 export function getDrag() {

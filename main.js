@@ -2,16 +2,17 @@ import { CONFIG } from './config.js';
 import { World } from './world.js';
 import {
   attachP5, rebuildVignette, drawTrailFade,
-  drawFood, drawOrganisms, drawHouses, drawHousePreview,
+  drawFood, drawOrganisms, drawHouses, drawZones, drawHousePreview,
   drawVignette, drawNightTint, paintBackground,
 } from './renderer.js';
 import { createLineage, suggestNextLineageDefaults } from './lineage.js';
 import { House } from './house.js';
+import { Zone } from './zone.js';
 import {
-  setTool, getTool, isModalOpen, onPlaceHouse, onToolChange,
+  setTool, getTool, isModalOpen, onPlaceHouse, onPlaceZone, onToolChange,
   onMouseDown, onMouseMove, onMouseUp, getDrag,
 } from './tools.js';
-import { showHouseModal } from './ui.js';
+import { showHouseModal, showZoneModal } from './ui.js';
 import { FloatingWindow } from './windows.js';
 
 // ---- runtime state ----
@@ -80,6 +81,7 @@ const sketch = (p) => {
     }
 
     drawTrailFade(state.world.currentBgColor());
+    drawZones(state.world);
     drawHouses(state.world);
     drawFood(state.world);
     drawOrganisms(state.world);
@@ -748,6 +750,29 @@ function setupToolbar() {
 // ============================================================================
 // House placement flow
 // ============================================================================
+function handlePlaceZone(x, y, radius) {
+  const w = state.world;
+  const existingLineages = [...w.lineages.values()];
+  showZoneModal(
+    existingLineages,
+    (data) => {
+      const zone = new Zone(
+        x, y, radius, data.color,
+        {
+          foodDensity: data.foodDensity,
+          foodEnergy: data.foodEnergy,
+          decayMultiplier: data.decayMultiplier,
+          predatorsAllowed: data.predatorsAllowed,
+        },
+        data.allowedLineages,
+      );
+      w.addZone(zone);
+      setTool('select');
+    },
+    () => setTool('select'),
+  );
+}
+
 function handlePlaceHouse(x, y, radius) {
   const w = state.world;
   const suggested = suggestNextLineageDefaults(w.lineages.values());
@@ -789,6 +814,7 @@ window.addEventListener('DOMContentLoaded', () => {
   setupBottomBar();
   setupToolbar();
   onPlaceHouse(handlePlaceHouse);
+  onPlaceZone(handlePlaceZone);
 
   const v = document.getElementById('version-tag');
   if (v) v.textContent = CONFIG.version;

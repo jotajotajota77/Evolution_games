@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.8',
+  version: 'v1.9',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -104,6 +104,19 @@ export const CONFIG = {
   // Placement tool constraints.
   houseMinRadius: 30,
   houseMaxRadius: 220,
+  zoneMinRadius: 30,
+  zoneMaxRadius: 260,
+
+  // Zone (non-house) defaults — pre-filled into the zone placement modal.
+  // Zones with an empty allowedLineages set are open to everyone (spec
+  // default: "Acessível a qualquer organismo por padrão").
+  zoneDefaults: {
+    color: [148, 132, 200],
+    foodDensity: 1.2,
+    foodEnergy: 30,
+    decayMultiplier: 1.0,
+    predatorsAllowed: true,
+  },
 
   // Energy lost on collision with a zone the organism's lineage isn't
   // allowed into. Small enough that occasional bumps don't kill, big
