@@ -22,6 +22,10 @@ export class House {
     this.allowedLineages = new Set(allowedLineages || []);
     this.allowedLineages.add(lineageId);
     this.foodSpawnAccumulator = 0;
+    // Snapshot of the food density at construction so persistence respawn
+    // can restore it after a gradual-reduction wind-down. Updated whenever
+    // the user explicitly re-baselines via the edit modal.
+    this.foodDensityInitial = zoneConfig.foodDensity;
   }
 
   isAllowed(lineageId) {

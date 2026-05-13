@@ -247,7 +247,8 @@ export class World {
     }
     // First reduction fires one step from when the house was placed.
     if (house.zone.gradualReduction && house._nextReductionTickSec == null) {
-      house._nextReductionTickSec = this.tickSec + CONFIG.houseGradualReductionStepSec;
+      const days = house.zone.reductionIntervalDays || 30;
+      house._nextReductionTickSec = this.tickSec + days * CONFIG.dayLengthSec;
     }
   }
 
@@ -465,15 +466,16 @@ export class World {
     this._recomputeDayCycle();
 
     // Gradual food-density reduction per house. Each house ticks down by
-    // CONFIG.houseGradualReductionAmount every CONFIG.houseGradualReductionStepSec
-    // sim-seconds (default: 0.1 per 30 in-game days), clamped at its
-    // configured floor. The while-loop catches cases where high-speed
-    // playback skipped multiple reduction windows in one tick.
+    // CONFIG.houseGradualReductionAmount every (reductionIntervalDays * day
+    // length) sim-seconds, clamped at the per-house floor. The while-loop
+    // catches cases where high-speed playback skipped multiple reduction
+    // windows in one tick.
     if (this.houses.length) {
-      const step = CONFIG.houseGradualReductionStepSec;
       const amount = CONFIG.houseGradualReductionAmount;
+      const daySec = CONFIG.dayLengthSec;
       for (const h of this.houses) {
         if (!h.zone.gradualReduction) continue;
+        const step = (h.zone.reductionIntervalDays || 30) * daySec;
         if (h._nextReductionTickSec == null) {
           h._nextReductionTickSec = this.tickSec + step;
           continue;
@@ -588,6 +590,14 @@ export class World {
           clone.speciesId = deceased.speciesId;
           clone.budSpeciesId = deceased.budSpeciesId;
           this.organisms.push(clone);
+        }
+        // Resurrection also resets the gradual-reduction state: density
+        // jumps back to its initial baseline and the next-reduction timer
+        // restarts from this moment.
+        if (house.zone.gradualReduction && house.foodDensityInitial != null) {
+          house.zone.foodDensity = house.foodDensityInitial;
+          const days = house.zone.reductionIntervalDays || 30;
+          house._nextReductionTickSec = this.tickSec + days * CONFIG.dayLengthSec;
         }
       }
     }

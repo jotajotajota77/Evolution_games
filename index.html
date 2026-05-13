@@ -159,6 +159,10 @@
             <label class="checkbox"><input type="checkbox" name="gradualReduction" /> gradual food reduction</label>
           </div>
           <div class="form-row">
+            <label>interval (days)</label>
+            <input type="number" name="reductionIntervalDays" min="1" max="365" step="1" />
+          </div>
+          <div class="form-row">
             <label>density floor</label>
             <input type="number" name="foodDensityFloor" step="0.1" min="0" />
           </div>

@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.39',
+  version: 'v1.40',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -137,16 +137,23 @@ export const CONFIG = {
     // sim-seconds, clamped at foodDensityFloor.
     gradualReduction: false,
     foodDensityFloor: 0.5,
+    // Days between each reduction step. Per-house so the user can tune
+    // pacing without a global config edit.
+    reductionIntervalDays: 30,
     // Persistence: when the last alive organism of this lineage dies, spawn
     // housePersistenceCopies exact clones (same brain, same drift) inside
-    // the house so the lineage doesn't go extinct.
+    // the house so the lineage doesn't go extinct. If gradualReduction is
+    // also on, the food density restarts at its initial value at the same
+    // time the clones are spawned.
     persistence: false,
   },
 
   // Gradual food-density reduction (per house, when its zone.gradualReduction
   // is on). Step measured in sim-seconds — at the default day length of 90 s
   // this is exactly 30 in-game days.
-  houseGradualReductionStepSec: 30 * 90,
+  // Amount the food density drops per reduction step. The interval itself
+  // is configured per-house (zone.reductionIntervalDays) so this stays a
+  // global magnitude only.
   houseGradualReductionAmount: 0.1,
 
   // Persistence (per house, when its zone.persistence is on). Number of

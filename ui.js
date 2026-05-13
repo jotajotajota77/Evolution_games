@@ -65,6 +65,7 @@ export function showHouseModal(suggested, existingLineages, onConfirm, onCancel,
     form.elements['decayMult'].value = editing.zone.decayMultiplier;
     form.elements['predatorsAllowed'].checked = !!editing.zone.predatorsAllowed;
     form.elements['gradualReduction'].checked = !!editing.zone.gradualReduction;
+    form.elements['reductionIntervalDays'].value = editing.zone.reductionIntervalDays ?? d.reductionIntervalDays;
     form.elements['foodDensityFloor'].value = editing.zone.foodDensityFloor ?? d.foodDensityFloor;
     form.elements['persistence'].checked = !!editing.zone.persistence;
     form.elements['transFromInside'].checked = !!editing.barrier.transparentFromInside;
@@ -78,6 +79,7 @@ export function showHouseModal(suggested, existingLineages, onConfirm, onCancel,
     form.elements['decayMult'].value = d.decayMultiplier;
     form.elements['predatorsAllowed'].checked = d.predatorsAllowed;
     form.elements['gradualReduction'].checked = d.gradualReduction;
+    form.elements['reductionIntervalDays'].value = d.reductionIntervalDays;
     form.elements['foodDensityFloor'].value = d.foodDensityFloor;
     form.elements['persistence'].checked = d.persistence;
     form.elements['transFromInside'].checked = d.transparentFromInside;
@@ -103,6 +105,7 @@ export function showHouseModal(suggested, existingLineages, onConfirm, onCancel,
       decayMultiplier: clampNum(form.elements['decayMult'].value, 0, 5, d.decayMultiplier),
       predatorsAllowed: form.elements['predatorsAllowed'].checked,
       gradualReduction: form.elements['gradualReduction'].checked,
+      reductionIntervalDays: clampInt(form.elements['reductionIntervalDays'].value, 1, 365, d.reductionIntervalDays),
       foodDensityFloor: clampNum(form.elements['foodDensityFloor'].value, 0, 50, d.foodDensityFloor),
       persistence: form.elements['persistence'].checked,
       transparentFromInside: form.elements['transFromInside'].checked,

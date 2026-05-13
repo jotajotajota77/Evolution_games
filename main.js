@@ -1259,10 +1259,14 @@ function handleEdit(x, y) {
         // Apply data to the existing house. Lineage id stays the same;
         // home lineage is auto-added back by the Set.
         house.zone.foodDensity = data.foodDensity;
+        // User explicitly set this density value — treat it as the new
+        // baseline for persistence respawn to restore to.
+        house.foodDensityInitial = data.foodDensity;
         house.zone.foodEnergy = data.foodEnergy;
         house.zone.decayMultiplier = data.decayMultiplier;
         house.zone.predatorsAllowed = data.predatorsAllowed;
         house.zone.gradualReduction = data.gradualReduction;
+        house.zone.reductionIntervalDays = data.reductionIntervalDays;
         house.zone.foodDensityFloor = data.foodDensityFloor;
         house.zone.persistence = data.persistence;
         // If reduction was just turned on, seed the next-reduction timer
@@ -1270,7 +1274,8 @@ function handleEdit(x, y) {
         // from now (not retroactive).
         if (data.gradualReduction && (house._nextReductionTickSec == null
             || house._nextReductionTickSec < state.world.tickSec)) {
-          house._nextReductionTickSec = state.world.tickSec + CONFIG.houseGradualReductionStepSec;
+          house._nextReductionTickSec = state.world.tickSec +
+            data.reductionIntervalDays * CONFIG.dayLengthSec;
         }
         house.barrier.transparentFromInside = data.transparentFromInside;
         house.barrier.transparentFromOutside = data.transparentFromOutside;
@@ -1357,6 +1362,7 @@ function handlePlaceHouse(x, y, radius) {
           decayMultiplier: data.decayMultiplier,
           predatorsAllowed: data.predatorsAllowed,
           gradualReduction: data.gradualReduction,
+          reductionIntervalDays: data.reductionIntervalDays,
           foodDensityFloor: data.foodDensityFloor,
           persistence: data.persistence,
         },
