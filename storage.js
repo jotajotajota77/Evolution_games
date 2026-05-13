@@ -74,6 +74,7 @@ function serialize(w) {
       zone: { ...h.zone },
       barrier: { ...h.barrier },
       allowedLineages: [...h.allowedLineages],
+      nextReductionTickSec: h._nextReductionTickSec ?? null,
     })),
     zones: w.zones.map((z) => ({
       id: z.id, x: z.x, y: z.y, radius: z.radius, color: [...z.color],
@@ -146,6 +147,7 @@ function deserialize(d) {
   for (const hd of d.houses || []) {
     const h = new House(hd.x, hd.y, hd.radius, hd.lineageId, hd.zone, hd.barrier, hd.allowedLineages);
     h.id = hd.id;
+    if (hd.nextReductionTickSec != null) h._nextReductionTickSec = hd.nextReductionTickSec;
     w.houses.push(h);
     const lin = w.lineages.get(hd.lineageId);
     if (lin) { lin.houseId = h.id; lin.house = h; }

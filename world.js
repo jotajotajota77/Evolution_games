@@ -245,6 +245,10 @@ export class World {
       lin.houseId = house.id;
       lin.house = house;
     }
+    // First reduction fires one step from when the house was placed.
+    if (house.zone.gradualReduction && house._nextReductionTickSec == null) {
+      house._nextReductionTickSec = this.tickSec + CONFIG.houseGradualReductionStepSec;
+    }
   }
 
   addZone(zone) {
@@ -459,6 +463,28 @@ export class World {
   update(dtSec) {
     this.tickSec += dtSec;
     this._recomputeDayCycle();
+
+    // Gradual food-density reduction per house. Each house ticks down by
+    // CONFIG.houseGradualReductionAmount every CONFIG.houseGradualReductionStepSec
+    // sim-seconds (default: 0.1 per 30 in-game days), clamped at its
+    // configured floor. The while-loop catches cases where high-speed
+    // playback skipped multiple reduction windows in one tick.
+    if (this.houses.length) {
+      const step = CONFIG.houseGradualReductionStepSec;
+      const amount = CONFIG.houseGradualReductionAmount;
+      for (const h of this.houses) {
+        if (!h.zone.gradualReduction) continue;
+        if (h._nextReductionTickSec == null) {
+          h._nextReductionTickSec = this.tickSec + step;
+          continue;
+        }
+        const floor = h.zone.foodDensityFloor ?? 0;
+        while (this.tickSec >= h._nextReductionTickSec) {
+          h.zone.foodDensity = Math.max(floor, h.zone.foodDensity - amount);
+          h._nextReductionTickSec += step;
+        }
+      }
+    }
 
     // Rebuild spatial grids at the start of every tick. Subsequent reads
     // (sensors, nearestFood, predator targeting) see consistent state for

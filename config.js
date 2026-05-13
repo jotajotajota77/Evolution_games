@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.37',
+  version: 'v1.38',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -132,7 +132,18 @@ export const CONFIG = {
     predatorsAllowed: true,
     transparentFromInside: false,
     transparentFromOutside: false,
+    // Gradual reduction: when on, the house's foodDensity drops by
+    // houseGradualReductionAmount every houseGradualReductionStepSec
+    // sim-seconds, clamped at foodDensityFloor.
+    gradualReduction: false,
+    foodDensityFloor: 0.5,
   },
+
+  // Gradual food-density reduction (per house, when its zone.gradualReduction
+  // is on). Step measured in sim-seconds — at the default day length of 90 s
+  // this is exactly 30 in-game days.
+  houseGradualReductionStepSec: 30 * 90,
+  houseGradualReductionAmount: 0.1,
 
   // Placement tool constraints.
   houseMinRadius: 30,

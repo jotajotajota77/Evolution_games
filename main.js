@@ -1262,6 +1262,15 @@ function handleEdit(x, y) {
         house.zone.foodEnergy = data.foodEnergy;
         house.zone.decayMultiplier = data.decayMultiplier;
         house.zone.predatorsAllowed = data.predatorsAllowed;
+        house.zone.gradualReduction = data.gradualReduction;
+        house.zone.foodDensityFloor = data.foodDensityFloor;
+        // If reduction was just turned on, seed the next-reduction timer
+        // from the current world tick so the first drop happens one step
+        // from now (not retroactive).
+        if (data.gradualReduction && (house._nextReductionTickSec == null
+            || house._nextReductionTickSec < state.world.tickSec)) {
+          house._nextReductionTickSec = state.world.tickSec + CONFIG.houseGradualReductionStepSec;
+        }
         house.barrier.transparentFromInside = data.transparentFromInside;
         house.barrier.transparentFromOutside = data.transparentFromOutside;
         const allowed = new Set(data.allowedLineages);
@@ -1346,6 +1355,8 @@ function handlePlaceHouse(x, y, radius) {
           foodEnergy: data.foodEnergy,
           decayMultiplier: data.decayMultiplier,
           predatorsAllowed: data.predatorsAllowed,
+          gradualReduction: data.gradualReduction,
+          foodDensityFloor: data.foodDensityFloor,
         },
         {
           transparentFromInside: data.transparentFromInside,
