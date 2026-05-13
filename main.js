@@ -3,7 +3,7 @@ import { World } from './world.js';
 import {
   attachP5, rebuildVignette, drawTrailFade,
   drawFood, drawOrganisms, drawHouses, drawZones, drawBarriers, drawPredators,
-  drawOrganismHighlight, drawPlacementPreview,
+  drawPoisons, drawOrganismHighlight, drawPlacementPreview,
   drawVignette, drawNightTint, paintBackground,
 } from './renderer.js';
 import { createLineage, suggestNextLineageDefaults } from './lineage.js';
@@ -93,6 +93,7 @@ const sketch = (p) => {
     drawHouses(state.world);
     drawBarriers(state.world);
     drawFood(state.world);
+    drawPoisons(state.world);
     drawOrganisms(state.world);
     drawPredators(state.world);
     if (state.followBest) {

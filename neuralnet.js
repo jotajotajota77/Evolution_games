@@ -37,8 +37,22 @@ export class NeuralNet {
     }
     this.numWeights = total;
 
-    if (weights) {
+    if (weights && weights.length === total) {
       this.weights = weights;
+    } else if (weights) {
+      // Brain migration. Saved snapshots may carry a weight buffer from an
+      // older architecture (e.g. 3 outputs before v1.28's 4-output bump).
+      // The layout for layers 1..N-1 stays identical when only the output
+      // count grows, and the layer-3 output stride is unchanged, so a
+      // byte-by-byte copy of the overlap preserves every previously-evolved
+      // weight. The remainder (new output neurons) gets a small random
+      // init so it starts near zero and evolves through normal mutation.
+      this.weights = new Float32Array(total);
+      const overlap = Math.min(weights.length, total);
+      for (let i = 0; i < overlap; i++) this.weights[i] = weights[i];
+      for (let i = overlap; i < total; i++) {
+        this.weights[i] = (Math.random() - 0.5) * 0.4;
+      }
     } else {
       this.weights = new Float32Array(total);
       let idx = 0;

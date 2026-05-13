@@ -146,6 +146,27 @@ export function drawOrganismHighlight(org) {
   ctx.shadowBlur = 0;
 }
 
+// Poison clouds — pulsing green discs that expand and fade as they age.
+// Drawn under organisms / predators so the entities sit on top.
+export function drawPoisons(world) {
+  if (!p || !world.poisons.length) return;
+  const ctx = p.drawingContext;
+  const [r, g, b] = CONFIG.poisonColor;
+  const baseR = CONFIG.poisonRadius;
+  for (const pn of world.poisons) {
+    const life = pn.ageSec / CONFIG.poisonDurationSec; // 0..1
+    const alpha = (1 - life) * 0.55;
+    const pulse = 0.85 + 0.15 * Math.sin(pn.ageSec * 6);
+    const radius = baseR * (0.55 + life * 0.85) * pulse;
+    ctx.shadowBlur = 22 * (1 - life);
+    ctx.shadowColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    p.noStroke();
+    p.fill(r, g, b, alpha * 255);
+    p.circle(pn.x, pn.y, radius * 2);
+  }
+  ctx.shadowBlur = 0;
+}
+
 // Predators — bigger, saturated red, strong glow, tiny heading tick so the
 // user can see what they're chasing. Drawn over organisms.
 export function drawPredators(world) {
@@ -158,8 +179,14 @@ export function drawPredators(world) {
     // Predator energy has no upper bound, so we just floor the alpha at a
     // visible level and clamp the upper end.
     const energyAlpha = 200 + Math.min(55, Math.max(0, pr.energy) / 100 * 55);
-    ctx.shadowColor = 'rgba(255, 90, 100, 0.95)';
-    p.fill(255, 90, 100, energyAlpha);
+    if (pr.paralysisRemainingSec > 0) {
+      // Toxic-green tint while frozen so the poison effect is unmistakable.
+      ctx.shadowColor = 'rgba(150, 220, 130, 0.85)';
+      p.fill(170, 220, 140, energyAlpha * 0.7);
+    } else {
+      ctx.shadowColor = 'rgba(255, 90, 100, 0.95)';
+      p.fill(255, 90, 100, energyAlpha);
+    }
     p.circle(pr.x, pr.y, CONFIG.predatorRadius * 2);
   }
   ctx.shadowBlur = 0;

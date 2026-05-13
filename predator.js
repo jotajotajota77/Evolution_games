@@ -28,11 +28,31 @@ export class Predator {
     // Marker used by region helpers + sensor code.
     this.lineageId = PREDATOR_LINEAGE_ID;
     this.isPredator = true;
+    // Seconds remaining of paralysis (from poison contact). Skips motion +
+    // attack while > 0, but energy keeps decaying so a long enough freeze
+    // still kills via starvation.
+    this.paralysisRemainingSec = 0;
   }
 
   update(dtSec, world) {
     if (!this.alive) return;
     this.ageSec += dtSec;
+
+    // Poison check — touching any active cloud resets the paralysis timer.
+    if (world.poisonAt(this.x, this.y)) {
+      this.paralysisRemainingSec = CONFIG.predatorParalysisSec;
+    }
+    if (this.paralysisRemainingSec > 0) {
+      this.paralysisRemainingSec = Math.max(0, this.paralysisRemainingSec - dtSec);
+      this.currentSpeed = 0;
+      // Still bleeds energy (a bit slower than normal — frozen but not dead).
+      this.energy -= CONFIG.predatorEnergyDecayPerSec * 0.6 * dtSec;
+      if (this.energy <= 0) {
+        this.alive = false;
+        this.causeOfDeath = 'starvation';
+      }
+      return;
+    }
 
     // --- Targeting: nearest live organism within sense range.
     const target = nearestPrey(this, world);

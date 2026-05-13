@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.27',
+  version: 'v1.28',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -64,7 +64,10 @@ export const CONFIG = {
 
   // Neural network — fixed across all phases so the same architecture survives
   // when later phases activate the currently-zeroed sensors.
-  nnArchitecture: [34, 20, 14, 3],
+  // v1.28: output 4 added (poison emission). Saved brains from older versions
+  // are migrated on load — the new output neuron's weights are small-random
+  // so it starts ~neutral and evolves through normal mutation.
+  nnArchitecture: [34, 20, 14, 4],
 
   // Sensors / vision
   visionRays: 8,
@@ -161,6 +164,18 @@ export const CONFIG = {
   // allowed into. Small enough that occasional bumps don't kill, big
   // enough to discourage pressing against the boundary.
   barrierHitEnergyCost: 0.6,
+
+  // Poison — 4th NN output. The organism emits a short-lived cloud that
+  // paralyses any predator entering it. Costly so only well-fed organisms
+  // can afford to defend themselves.
+  poisonEmitThreshold: 0.65,       // sigmoid output threshold to actually emit
+  poisonEmitEnergyMin: 50,         // must have at least this energy to fire
+  poisonEmitEnergyCost: 28,        // energy paid per emission
+  poisonDurationSec: 5,            // cloud lifespan
+  poisonRadius: 16,                // collision radius
+  poisonEmitCooldownSec: 0.8,      // small refractory so a single tick can't fire repeatedly
+  predatorParalysisSec: 3,         // how long a predator stays frozen on contact
+  poisonColor: [170, 255, 110],    // toxic green
 
   // Predators (phase 7). Scripted agents that pursue the nearest organism.
   // House barriers always exclude them; zones with predatorsAllowed=false

@@ -89,6 +89,7 @@ export class World {
     this.zones = [];                  // non-house zones (phase 5)
     this.barriers = [];               // user-drawn line barriers (phase 6)
     this.predators = [];              // scripted predators (phase 7)
+    this.poisons = [];                // short-lived poison clouds (v1.28)
 
     // Broad-phase grids (phase 8). Rebuilt at the start of every update tick.
     this.gridFood = new SpatialGrid(width, height, CONFIG.spatialCellSize);
@@ -196,6 +197,7 @@ export class World {
     this.organisms.length = 0;
     this.food.length = 0;
     this.predators.length = 0;
+    this.poisons.length = 0;
     for (const h of this.houses) h.foodSpawnAccumulator = 0;
     for (const z of this.zones) z.foodSpawnAccumulator = 0;
     this.tickSec = CONFIG.startAtNoon ? CONFIG.dayLengthSec / 2 : 0;
@@ -327,6 +329,23 @@ export class World {
     const pred = new Predator(pt.x, pt.y);
     this.predators.push(pred);
     return pred;
+  }
+
+  // Drops a poison cloud at (x, y). Lives for CONFIG.poisonDurationSec; any
+  // predator entering its radius gets paralysed for predatorParalysisSec.
+  emitPoison(x, y, lineageId = null) {
+    this.poisons.push({ x, y, ageSec: 0, lineageId });
+  }
+
+  // True when (x, y) is inside any active poison cloud. Used by predators.
+  poisonAt(x, y) {
+    const r2 = CONFIG.poisonRadius * CONFIG.poisonRadius;
+    for (let i = 0; i < this.poisons.length; i++) {
+      const p = this.poisons[i];
+      const dx = x - p.x, dy = y - p.y;
+      if (dx * dx + dy * dy <= r2) return true;
+    }
+    return false;
   }
 
   // Houses bounce all predators. Zones bounce predators when
@@ -514,6 +533,15 @@ export class World {
       const remaining = [];
       for (const f of this.food) if (!f.eaten) remaining.push(f);
       this.food = remaining;
+    }
+
+    // Age + cull poison clouds.
+    if (this.poisons.length) {
+      for (let i = this.poisons.length - 1; i >= 0; i--) {
+        const p = this.poisons[i];
+        p.ageSec += dtSec;
+        if (p.ageSec >= CONFIG.poisonDurationSec) this.poisons.splice(i, 1);
+      }
     }
 
     // Phylogeny tracking — two trees ticked side by side, each with its

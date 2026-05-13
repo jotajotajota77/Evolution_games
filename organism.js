@@ -21,6 +21,9 @@ export class Organism {
     this.brain = brain || new NeuralNet();
     this.sensorBuffer = new Float32Array(SENSOR_COUNT);
     this.wantsToReproduce = false;
+    // Small cooldown so a single high-output frame doesn't fire a chain of
+    // emissions while the organism still has energy.
+    this.poisonCooldownSec = 0;
 
     // Inheritable per-individual colour offset. Founders start at zero; each
     // birth accumulates a small gaussian step (see spawnChild).
@@ -39,14 +42,19 @@ export class Organism {
     // 1. Sense
     computeSensors(this, world, this.sensorBuffer);
 
-    // 2. Think — three raw outputs, then per-output activations:
+    // 2. Think — four raw outputs, then per-output activations:
     //    out[0] → tanh → turn intent  ∈ [-1, 1]
     //    out[1] → sigmoid → desired speed ∈ [0, 1]
     //    out[2] → sigmoid → reproduce intent ∈ [0, 1]
+    //    out[3] → sigmoid → poison emit intent ∈ [0, 1]
     const out = this.brain.forward(this.sensorBuffer);
     const turn = Math.tanh(out[0]);
     const desiredSpeed = sigmoid(out[1]);
     const reproduceIntent = sigmoid(out[2]);
+    // out[3] may be undefined on legacy brains that never got migrated;
+    // defensive check just in case.
+    const poisonIntent = out.length >= 4 ? sigmoid(out[3]) : 0;
+    if (this.poisonCooldownSec > 0) this.poisonCooldownSec = Math.max(0, this.poisonCooldownSec - dtSec);
 
     // 3. Apply motion. Constants are calibrated for 60fps and rescaled by dt
     //    so behaviour stays consistent at higher speed multipliers.
@@ -113,6 +121,18 @@ export class Organism {
     this.wantsToReproduce =
       this.energy >= CONFIG.organismMaxEnergy * CONFIG.reproductionEnergyThresh &&
       reproduceIntent >= CONFIG.reproductionIntentThresh;
+
+    // 9. Poison emission. Costly: the energy floor + per-emit cost keep this
+    //    behaviour expensive, so organisms only afford it when topped up.
+    if (
+      this.poisonCooldownSec === 0 &&
+      poisonIntent >= CONFIG.poisonEmitThreshold &&
+      this.energy >= CONFIG.poisonEmitEnergyMin
+    ) {
+      world.emitPoison(this.x, this.y, this.lineageId);
+      this.energy -= CONFIG.poisonEmitEnergyCost;
+      this.poisonCooldownSec = CONFIG.poisonEmitCooldownSec;
+    }
   }
 
   // Called by world.update once cap-check passes. Splits energy with the child
