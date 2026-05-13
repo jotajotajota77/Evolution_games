@@ -28,30 +28,22 @@ export class Predator {
     // Marker used by region helpers + sensor code.
     this.lineageId = PREDATOR_LINEAGE_ID;
     this.isPredator = true;
-    // Seconds remaining of paralysis (from poison contact). Skips motion +
-    // attack while > 0, but energy keeps decaying so a long enough freeze
-    // still kills via starvation.
-    this.paralysisRemainingSec = 0;
+    // Seconds remaining of poison-induced slowdown. While > 0 the predator
+    // continues to hunt + attack normally but its current speed is heavily
+    // multiplied down (see CONFIG.predatorPoisonSlowFactor).
+    this.poisonedRemainingSec = 0;
   }
 
   update(dtSec, world) {
     if (!this.alive) return;
     this.ageSec += dtSec;
 
-    // Poison check — touching any active cloud resets the paralysis timer.
+    // Poison check — touching any active puff refreshes the slowdown timer.
     if (world.poisonAt(this.x, this.y)) {
-      this.paralysisRemainingSec = CONFIG.predatorParalysisSec;
+      this.poisonedRemainingSec = CONFIG.predatorPoisonedDurationSec;
     }
-    if (this.paralysisRemainingSec > 0) {
-      this.paralysisRemainingSec = Math.max(0, this.paralysisRemainingSec - dtSec);
-      this.currentSpeed = 0;
-      // Still bleeds energy (a bit slower than normal — frozen but not dead).
-      this.energy -= CONFIG.predatorEnergyDecayPerSec * 0.6 * dtSec;
-      if (this.energy <= 0) {
-        this.alive = false;
-        this.causeOfDeath = 'starvation';
-      }
-      return;
+    if (this.poisonedRemainingSec > 0) {
+      this.poisonedRemainingSec = Math.max(0, this.poisonedRemainingSec - dtSec);
     }
 
     // --- Targeting: nearest live organism within sense range.
@@ -74,6 +66,11 @@ export class Predator {
       // Idle wander — slow drift so predators don't all stack at one spot.
       this.heading += (Math.random() - 0.5) * 0.06;
       this.currentSpeed = CONFIG.predatorMaxSpeed * 0.45;
+    }
+
+    // Poison slowdown applied last — affects both hunting + wander speeds.
+    if (this.poisonedRemainingSec > 0) {
+      this.currentSpeed *= CONFIG.predatorPoisonSlowFactor;
     }
 
     const prevX = this.x;

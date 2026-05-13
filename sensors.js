@@ -22,6 +22,7 @@ export const SENSOR_TYPES = {
   NONE: 0,
   FOOD: 0.2,
   ORG: 0.4,
+  PRED_POISONED: 0.5,   // poisoned/slowed predator — still dangerous on touch, just sluggish
   PRED: 0.6,
   WALL: 0.8,
   BARRIER: 1.0,
@@ -69,7 +70,11 @@ function fillVision(org, world) {
   const predCandidates = world.gridPreds.queryRadius(org.x, org.y, range + CONFIG.predatorRadius + slop);
   testEntities(org, foodCandidates, CONFIG.foodRadius, SENSOR_TYPES.FOOD, 1, range, true);
   testEntities(org, orgCandidates,  CONFIG.organismRadius, SENSOR_TYPES.ORG,  1, range, false);
-  testEntities(org, predCandidates, CONFIG.predatorRadius, SENSOR_TYPES.PRED, 1, range, false);
+  testEntities(
+    org, predCandidates, CONFIG.predatorRadius,
+    (pr) => (pr.poisonedRemainingSec > 0 ? SENSOR_TYPES.PRED_POISONED : SENSOR_TYPES.PRED),
+    1, range, false,
+  );
 
   // Drawn barriers (phase 6). For each ray, only barriers OPAQUE FROM THE
   // ORGANISM'S SIDE compete for the nearest hit; transparent ones are
@@ -144,9 +149,13 @@ function testBarriers(org, barriers, range) {
 
 // Common helper for any list of circular entities. `skipEaten` filters food
 // pellets; for organisms we instead skip self / dead.
+// `type` may be a number (constant for the whole list) OR a function that
+// receives the entity and returns the type for it — used so a predator
+// dispatches PRED vs PRED_POISONED per instance without a separate loop.
 function testEntities(org, list, eRadius, type, passable, range, skipEaten) {
   const r2 = eRadius * eRadius;
   const reachSq = (range + eRadius) * (range + eRadius);
+  const typeIsFn = typeof type === 'function';
 
   for (let i = 0; i < list.length; i++) {
     const e = list[i];
@@ -160,6 +169,7 @@ function testEntities(org, list, eRadius, type, passable, range, skipEaten) {
     const dy = e.y - org.y;
     const distSq = dx * dx + dy * dy;
     if (distSq > reachSq) continue;
+    const entType = typeIsFn ? type(e) : type;
 
     // Test this entity against each ray. With small entities (~3-4 px) and a
     // ~17° gap between rays, an entity rarely registers on more than one ray.
@@ -173,7 +183,7 @@ function testEntities(org, list, eRadius, type, passable, range, skipEaten) {
       if (t0 < 0 || t0 > range) continue;
       if (t0 < _nearestDist[r]) {
         _nearestDist[r] = t0;
-        _nearestType[r] = type;
+        _nearestType[r] = entType;
         _nearestPass[r] = passable;
       }
     }

@@ -204,10 +204,12 @@ export function drawPredators(world) {
     // Predator energy has no upper bound, so we just floor the alpha at a
     // visible level and clamp the upper end.
     const energyAlpha = 200 + Math.min(55, Math.max(0, pr.energy) / 100 * 55);
-    if (pr.paralysisRemainingSec > 0) {
-      // Toxic-green tint while frozen so the poison effect is unmistakable.
-      ctx.shadowColor = 'rgba(150, 220, 130, 0.85)';
-      p.fill(170, 220, 140, energyAlpha * 0.7);
+    if (pr.poisonedRemainingSec > 0) {
+      // Vivid lime-yellow tint while poisoned — instantly readable signal
+      // that the predator is slowed.
+      const [pr1, pg1, pb1] = CONFIG.predatorPoisonedColor;
+      ctx.shadowColor = `rgba(${pr1}, ${pg1}, ${pb1}, 0.9)`;
+      p.fill(pr1, pg1, pb1, energyAlpha);
     } else {
       ctx.shadowColor = 'rgba(255, 90, 100, 0.95)';
       p.fill(255, 90, 100, energyAlpha);

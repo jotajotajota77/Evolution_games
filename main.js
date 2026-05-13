@@ -1393,6 +1393,14 @@ function setupPwa() {
     }).catch(() => { /* not critical */ });
   }
 
+  // Lock to the device's natural orientation when running as an installed
+  // PWA. The manifest already requests "natural" but mobile browsers won't
+  // always honour OS rotation lock for web content; this call enforces it
+  // at the JS layer. Fails silently when not in standalone / fullscreen.
+  if (screen && screen.orientation && typeof screen.orientation.lock === 'function') {
+    screen.orientation.lock('natural').catch(() => { /* not supported in this context */ });
+  }
+
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;

@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.31',
+  version: 'v1.32',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -174,8 +174,12 @@ export const CONFIG = {
   poisonEmitsPerSec: 14,           // puffs/sec at full intent — dense spacing makes the trail look smooth
   poisonDurationSec: 1.6,          // each puff's lifespan
   poisonRadius: 12,                // baseline puff radius (sprite scales it; collision radius too)
-  predatorParalysisSec: 3,         // how long a predator stays frozen on contact
-  poisonColor: [170, 255, 110],    // toxic green
+  // v1.32: poison now SLOWS predators (no longer hard-paralysis). They keep
+  // moving + hunting at a fraction of their speed.
+  predatorPoisonedDurationSec: 3,  // how long the slow effect lasts after last contact
+  predatorPoisonSlowFactor: 0.18,  // current speed multiplier while poisoned
+  poisonColor: [170, 255, 110],    // toxic green (smoke)
+  predatorPoisonedColor: [225, 255, 35],  // vivid lime-yellow tint for poisoned predators
 
   // Predators (phase 7). Scripted agents that pursue the nearest organism.
   // House barriers always exclude them; zones with predatorsAllowed=false
