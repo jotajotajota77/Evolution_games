@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.36',
+  version: 'v1.37',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -180,11 +180,12 @@ export const CONFIG = {
   predatorPoisonSlowFactor: 0.18,  // current speed multiplier while poisoned
   poisonColor: [170, 255, 110],    // toxic green (smoke)
   predatorPoisonedColor: [225, 255, 35],  // vivid lime-yellow tint for poisoned predators
-  // Strongly negative initial bias for the poison output so fresh brains
-  // start ~silent (sigmoid(-3.5) ≈ 0.03, below the noise floor). Emission
-  // only emerges when mutation lifts this bias or builds a strong
-  // predator-sensor → poison-output connection.
-  poisonInitBias: -3.5,
+  // Negative initial bias for the poison output. sigmoid(-2.0) ≈ 0.12,
+  // just above the noise floor (0.08), so fresh brains emit very weakly
+  // and pay a small per-second cost — discoverable in either direction:
+  // a single helpful mutation either silences emission (negative input
+  // weight) or scales it up (positive predator-sensor connection).
+  poisonInitBias: -2.0,
 
   // Predators (phase 7). Scripted agents that pursue the nearest organism.
   // House barriers always exclude them; zones with predatorsAllowed=false
