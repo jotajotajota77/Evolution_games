@@ -92,6 +92,13 @@
       </div>
       <div class="popup-hint">chance the child of a reproduction event is mutated. otherwise it's an exact clone (the mother's genome is preserved).</div>
 
+      <div class="popup-title">poison cost (energy/sec)</div>
+      <div class="slider-row">
+        <input type="range" id="poison-cost" min="0" max="50" step="1" value="14" />
+        <span class="slider-value" id="poison-cost-value">14</span>
+      </div>
+      <div class="popup-hint">energy burned per second at full poison intent. higher = stronger penalty for over-emitting. temporary tuning slider.</div>
+
       <div class="popup-title">install</div>
       <button class="popup-item" id="btn-install" hidden>install as app</button>
       <div class="popup-hint" id="install-hint">on chrome / edge an install option will appear here once the browser is ready. on iOS use share → add to home screen.</div>
