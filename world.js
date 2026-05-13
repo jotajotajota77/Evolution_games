@@ -599,6 +599,15 @@ export class World {
           const days = house.zone.reductionIntervalDays || 30;
           house._nextReductionTickSec = this.tickSec + days * CONFIG.dayLengthSec;
         }
+        // Stock the house with starter pellets — the previous population
+        // ate most of the food before they all died, and the natural
+        // spawn rate alone takes time to refill. Without this the 10
+        // clones materialise into an empty pantry and starve again.
+        const refill = CONFIG.housePersistenceFoodRefill;
+        for (let i = 0; i < refill && this.food.length < CONFIG.foodMaxCount; i++) {
+          const pt = sampleInCircle(house.x, house.y, house.radius * 0.95);
+          this.food.push(makeFood(pt.x, pt.y, house.zone.foodEnergy));
+        }
       }
     }
 

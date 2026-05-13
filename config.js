@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.40',
+  version: 'v1.41',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -160,6 +160,10 @@ export const CONFIG = {
   // clones of the last-to-die organism that spawn inside the house when
   // its lineage hits zero alive members.
   housePersistenceCopies: 10,
+  // Pellets pre-stocked inside the house at the moment of respawn so the
+  // clones don't materialise into an empty pantry. Each pellet carries the
+  // house's current foodEnergy.
+  housePersistenceFoodRefill: 30,
 
   // Placement tool constraints.
   houseMinRadius: 30,
