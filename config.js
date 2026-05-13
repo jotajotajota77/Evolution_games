@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.28',
+  version: 'v1.29',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -165,15 +165,15 @@ export const CONFIG = {
   // enough to discourage pressing against the boundary.
   barrierHitEnergyCost: 0.6,
 
-  // Poison — 4th NN output. The organism emits a short-lived cloud that
-  // paralyses any predator entering it. Costly so only well-fed organisms
-  // can afford to defend themselves.
-  poisonEmitThreshold: 0.65,       // sigmoid output threshold to actually emit
-  poisonEmitEnergyMin: 50,         // must have at least this energy to fire
-  poisonEmitEnergyCost: 28,        // energy paid per emission
-  poisonDurationSec: 5,            // cloud lifespan
-  poisonRadius: 16,                // collision radius
-  poisonEmitCooldownSec: 0.8,      // small refractory so a single tick can't fire repeatedly
+  // Poison (v1.29). The 4th NN output drives a CONTINUOUS gas trail —
+  // higher sigmoid(out[3]) means more puffs per second and more energy
+  // burned per second. There is no on/off gate or cooldown; an organism
+  // that holds out[3] near 1 will starve itself.
+  poisonNoiseFloor: 0.08,          // intent below this leaves no trail (silences NN babble)
+  poisonCostPerSec: 14,            // energy/sec at full intent (intent=1)
+  poisonEmitsPerSec: 6,            // puffs/sec at full intent
+  poisonDurationSec: 2,            // each puff's lifespan
+  poisonRadius: 13,                // baseline puff radius (scaled by intensity)
   predatorParalysisSec: 3,         // how long a predator stays frozen on contact
   poisonColor: [170, 255, 110],    // toxic green
 

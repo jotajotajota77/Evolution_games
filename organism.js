@@ -21,9 +21,10 @@ export class Organism {
     this.brain = brain || new NeuralNet();
     this.sensorBuffer = new Float32Array(SENSOR_COUNT);
     this.wantsToReproduce = false;
-    // Small cooldown so a single high-output frame doesn't fire a chain of
-    // emissions while the organism still has energy.
-    this.poisonCooldownSec = 0;
+    // Fractional puff accumulator — emit one puff each time it crosses 1.
+    // Lets sub-1 emit rates (intent < 1.0) still produce puffs at the
+    // right average frequency.
+    this._poisonAccum = 0;
 
     // Inheritable per-individual colour offset. Founders start at zero; each
     // birth accumulates a small gaussian step (see spawnChild).
@@ -54,7 +55,6 @@ export class Organism {
     // out[3] may be undefined on legacy brains that never got migrated;
     // defensive check just in case.
     const poisonIntent = out.length >= 4 ? sigmoid(out[3]) : 0;
-    if (this.poisonCooldownSec > 0) this.poisonCooldownSec = Math.max(0, this.poisonCooldownSec - dtSec);
 
     // 3. Apply motion. Constants are calibrated for 60fps and rescaled by dt
     //    so behaviour stays consistent at higher speed multipliers.
@@ -122,16 +122,24 @@ export class Organism {
       this.energy >= CONFIG.organismMaxEnergy * CONFIG.reproductionEnergyThresh &&
       reproduceIntent >= CONFIG.reproductionIntentThresh;
 
-    // 9. Poison emission. Costly: the energy floor + per-emit cost keep this
-    //    behaviour expensive, so organisms only afford it when topped up.
-    if (
-      this.poisonCooldownSec === 0 &&
-      poisonIntent >= CONFIG.poisonEmitThreshold &&
-      this.energy >= CONFIG.poisonEmitEnergyMin
-    ) {
-      world.emitPoison(this.x, this.y, this.lineageId);
-      this.energy -= CONFIG.poisonEmitEnergyCost;
-      this.poisonCooldownSec = CONFIG.poisonEmitCooldownSec;
+    // 9. Continuous poison trail. The organism pays energy proportional to
+    //    intent every tick (no gate, no cooldown) and drops puffs at a rate
+    //    that scales with intent too. High sustained intent burns through
+    //    reserves fast — over-emission really does kill via starvation.
+    if (poisonIntent > CONFIG.poisonNoiseFloor) {
+      this.energy -= poisonIntent * CONFIG.poisonCostPerSec * dtSec;
+      this._poisonAccum += poisonIntent * CONFIG.poisonEmitsPerSec * dtSec;
+      while (this._poisonAccum >= 1) {
+        world.emitPoison(this.x, this.y, this.lineageId, poisonIntent);
+        this._poisonAccum -= 1;
+      }
+      // Starving on poison counts as starvation, same as any energy depletion.
+      if (this.energy <= 0) {
+        this.alive = false;
+        this.causeOfDeath = 'starvation';
+      }
+    } else {
+      this._poisonAccum = 0;
     }
   }
 

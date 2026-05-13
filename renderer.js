@@ -155,10 +155,13 @@ export function drawPoisons(world) {
   const baseR = CONFIG.poisonRadius;
   for (const pn of world.poisons) {
     const life = pn.ageSec / CONFIG.poisonDurationSec; // 0..1
-    const alpha = (1 - life) * 0.55;
-    const pulse = 0.85 + 0.15 * Math.sin(pn.ageSec * 6);
-    const radius = baseR * (0.55 + life * 0.85) * pulse;
-    ctx.shadowBlur = 22 * (1 - life);
+    const intensity = pn.intensity ?? 1;
+    // Alpha fades with age, scales with intensity. Radius grows slightly as
+    // the puff disperses and also scales with intensity, so a strong exhale
+    // leaves a fat puff and a wisp leaves a thin one.
+    const alpha = (1 - life) * 0.55 * (0.4 + 0.6 * intensity);
+    const radius = baseR * (0.45 + 0.55 * intensity) * (0.7 + life * 0.7);
+    ctx.shadowBlur = 18 * intensity * (1 - life);
     ctx.shadowColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
     p.noStroke();
     p.fill(r, g, b, alpha * 255);

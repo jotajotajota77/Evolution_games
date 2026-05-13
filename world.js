@@ -331,19 +331,20 @@ export class World {
     return pred;
   }
 
-  // Drops a poison cloud at (x, y). Lives for CONFIG.poisonDurationSec; any
-  // predator entering its radius gets paralysed for predatorParalysisSec.
-  emitPoison(x, y, lineageId = null) {
-    this.poisons.push({ x, y, ageSec: 0, lineageId });
+  // Drops a single poison puff. Each puff carries its emit intensity (0..1)
+  // — higher intensity widens the puff and brightens it visually.
+  emitPoison(x, y, lineageId = null, intensity = 1) {
+    this.poisons.push({ x, y, ageSec: 0, lineageId, intensity });
   }
 
-  // True when (x, y) is inside any active poison cloud. Used by predators.
+  // True when (x, y) is inside any active poison puff. Each puff's radius
+  // scales with its emit intensity.
   poisonAt(x, y) {
-    const r2 = CONFIG.poisonRadius * CONFIG.poisonRadius;
     for (let i = 0; i < this.poisons.length; i++) {
       const p = this.poisons[i];
+      const r = CONFIG.poisonRadius * (0.5 + 0.6 * (p.intensity ?? 1));
       const dx = x - p.x, dy = y - p.y;
-      if (dx * dx + dy * dy <= r2) return true;
+      if (dx * dx + dy * dy <= r * r) return true;
     }
     return false;
   }
