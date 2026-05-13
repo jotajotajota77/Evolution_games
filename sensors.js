@@ -1,20 +1,25 @@
 import { CONFIG } from './config.js';
 import { segmentSide, raySegmentT } from './barrier.js';
 
-// Sensor layout (34 inputs total):
-//   [0..23]  vision: 8 rays * 3 values (distance, type, passable)
-//   [24]     energy
-//   [25]     speed
-//   [26]     age
-//   [27..28] sin/cos day-time      (zero in phases 1-3)
-//   [29..31] dist/sin/cos to house (zero in phases 1-2)
-//   [32..33] in own zone / in foreign zone (zero in phases 1-4)
-export const SENSOR_COUNT = 34;
+// Sensor layout (CONFIG.visionRays * 3 vision values + 10 fixed inputs).
+// With the current default of 12 rays covering 360° around the organism,
+// total is 46. Old saves with 34-input brains (8 rays / 120° fan) are
+// migrated by NeuralNet's constructor — vision slots for the first 8 rays
+// stay at indices 0..23, the other 10 fields shift right by the number of
+// added vision slots.
+//   [0..N*3-1]   vision: N rays * 3 values (distance, type, passable)
+//   [N*3 + 0]    energy
+//   [N*3 + 1]    speed
+//   [N*3 + 2]    age
+//   [N*3 + 3..4] sin/cos day-time
+//   [N*3 + 5..7] dist/sin/cos to house
+//   [N*3 + 8..9] in own zone / in foreign zone
 export const VISION_BASE = 0;
-export const PROP_BASE = 24;
-export const TIME_BASE = 27;
-export const HOUSE_BASE = 29;
-export const ZONE_BASE = 32;
+export const PROP_BASE  = CONFIG.visionRays * 3;
+export const TIME_BASE  = PROP_BASE + 3;
+export const HOUSE_BASE = TIME_BASE + 2;
+export const ZONE_BASE  = HOUSE_BASE + 3;
+export const SENSOR_COUNT = ZONE_BASE + 2;
 
 // Type encoding for the second value of each ray. The chosen scalars are
 // equally spaced so the NN can treat the input as a soft category code.
@@ -45,8 +50,14 @@ const _nearestPass = new Float32Array(NUM_RAYS);
 function fillVision(org, world) {
   const range = CONFIG.visionRange;
   const fan = CONFIG.visionFanRad;
-  const startAngle = org.heading - fan / 2;
-  const angleStep = NUM_RAYS > 1 ? fan / (NUM_RAYS - 1) : 0;
+  // Full-circle (≈ 2π) case spaces rays as 2π/N so the last ray doesn't
+  // wrap into the first. Smaller fans use the inclusive fan/(N-1) layout
+  // so the first and last ray sit at the fan's edges.
+  const fullCircle = fan >= Math.PI * 1.99;
+  const angleStep = fullCircle
+    ? (2 * Math.PI) / NUM_RAYS
+    : (NUM_RAYS > 1 ? fan / (NUM_RAYS - 1) : 0);
+  const startAngle = fullCircle ? org.heading : org.heading - fan / 2;
 
   for (let r = 0; r < NUM_RAYS; r++) {
     const a = startAngle + r * angleStep;

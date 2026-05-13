@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.34',
+  version: 'v1.35',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -62,16 +62,16 @@ export const CONFIG = {
   statsIntervalMs: 1000,
   statsHistoryPoints: 60,           // 60s of history
 
-  // Neural network — fixed across all phases so the same architecture survives
-  // when later phases activate the currently-zeroed sensors.
-  // v1.28: output 4 added (poison emission). Saved brains from older versions
-  // are migrated on load — the new output neuron's weights are small-random
-  // so it starts ~neutral and evolves through normal mutation.
-  nnArchitecture: [34, 20, 14, 4],
+  // Neural network. v1.35 bumped inputs to 46 (12-ray 360° vision instead
+  // of 8-ray 120° fan) and outputs stayed at 4. Saved brains migrate on
+  // load — vision weights for the first 8 rays carry over to the same
+  // slots, the 4 new ray slots and any new output neurons start at small
+  // random values.
+  nnArchitecture: [46, 20, 14, 4],
 
-  // Sensors / vision
-  visionRays: 8,
-  visionFanRad: (120 * Math.PI) / 180, // ~2.094 rad fan in front of organism
+  // Sensors / vision — full circle now. 12 rays evenly spaced 30° apart.
+  visionRays: 12,
+  visionFanRad: 2 * Math.PI,           // full 360° (use 2π / N spacing in sensors.js)
   visionRange: 110,                    // px
 
   // Reproduction (asexual, via NN intent + energy threshold)

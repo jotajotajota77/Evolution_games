@@ -41,18 +41,17 @@ export class NeuralNet {
       this.weights = weights;
     } else if (weights) {
       // Brain migration. Saved snapshots may carry a weight buffer from an
-      // older architecture (e.g. 3 outputs before v1.28's 4-output bump).
-      // The layout for layers 1..N-1 stays identical when only the output
-      // count grows, and the layer-3 output stride is unchanged, so a
-      // byte-by-byte copy of the overlap preserves every previously-evolved
-      // weight. The remainder (new output neurons) gets a small random
-      // init so it starts near zero and evolves through normal mutation.
-      this.weights = new Float32Array(total);
-      const overlap = Math.min(weights.length, total);
-      for (let i = 0; i < overlap; i++) this.weights[i] = weights[i];
-      for (let i = overlap; i < total; i++) {
-        this.weights[i] = (Math.random() - 0.5) * 0.4;
-      }
+      // older architecture. v1.35 made this layout-aware:
+      //   - infers the old input count + output count from the buffer size
+      //     (assumes hidden layers stayed the same)
+      //   - preserves the old vision section verbatim (8 rays → first 24
+      //     slots in the new layout)
+      //   - shifts the non-vision section (10 fields) right by the number
+      //     of added vision slots so proprio/time/house/zone land in the
+      //     right new positions
+      //   - small-random-inits the *new* vision slots and any added output
+      //     neurons so they start near zero and evolve via mutation
+      this.weights = migrateWeights(weights, layers, total);
     } else {
       this.weights = new Float32Array(total);
       let idx = 0;
@@ -107,4 +106,101 @@ export class NeuralNet {
       if (Math.random() < rate) w[i] += gaussianRandom() * sigma;
     }
   }
+}
+
+// Number of non-vision sensor slots (proprio + time + house + zone). Kept
+// constant across architecture bumps; only the vision section's size has
+// ever varied.
+const NON_VISION_INPUTS = 10;
+
+// Builds a fresh weight buffer for `newLayers` and copies whatever it can
+// from `oldWeights` according to the documented sensor layout (vision
+// section first, then 10 fixed non-vision fields). Falls back to a plain
+// overlap-copy + random tail when the old shape can't be inferred.
+function migrateWeights(oldWeights, newLayers, totalNew) {
+  const newIn = newLayers[0];
+  const numH1 = newLayers[1];
+  const numH2 = newLayers[2];
+  const newOut = newLayers[3];
+  const newL1 = (newIn + 1) * numH1;
+  const newL2 = (numH1 + 1) * numH2;
+
+  const out = new Float32Array(totalNew);
+
+  // Try to infer the old architecture assuming only input count and output
+  // count changed (hidden sizes preserved). Solve:
+  //   oldL1 = (oldIn + 1) * numH1
+  //   oldL3 = (numH2 + 1) * oldOut
+  //   oldLen = oldL1 + newL2 + oldL3
+  const oldLen = oldWeights.length;
+  const remaining = oldLen - newL2;
+  let oldIn = null;
+  let oldOut = null;
+  for (const tryOut of [4, 3, 2]) {
+    const oldL3 = (numH2 + 1) * tryOut;
+    const candL1 = remaining - oldL3;
+    if (candL1 <= 0) continue;
+    const candIn = candL1 / numH1 - 1;
+    if (Number.isInteger(candIn) && candIn > 0) {
+      oldIn = candIn;
+      oldOut = tryOut;
+      break;
+    }
+  }
+
+  if (oldIn === null) {
+    // Unknown shape — best-effort overlap copy + small-random tail.
+    const overlap = Math.min(oldLen, totalNew);
+    for (let i = 0; i < overlap; i++) out[i] = oldWeights[i];
+    for (let i = overlap; i < totalNew; i++) out[i] = (Math.random() - 0.5) * 0.4;
+    return out;
+  }
+
+  const oldStride = oldIn + 1;
+  const newStride = newIn + 1;
+  const oldVision = oldIn - NON_VISION_INPUTS;
+  const newVision = newIn - NON_VISION_INPUTS;
+  const addedVision = newVision - oldVision;
+  const oldL2Off = oldStride * numH1;
+  const newL2Off = newStride * numH1;
+
+  // Layer 1: for each hidden neuron, lay out the new row as
+  //   [old vision] [new vision slots, random] [old non-vision] [bias]
+  for (let h = 0; h < numH1; h++) {
+    const oldRow = h * oldStride;
+    const newRow = h * newStride;
+    for (let i = 0; i < oldVision; i++) {
+      out[newRow + i] = oldWeights[oldRow + i];
+    }
+    for (let i = 0; i < addedVision; i++) {
+      out[newRow + oldVision + i] = (Math.random() - 0.5) * 0.4;
+    }
+    for (let i = 0; i < NON_VISION_INPUTS; i++) {
+      out[newRow + newVision + i] = oldWeights[oldRow + oldVision + i];
+    }
+    out[newRow + newIn] = oldWeights[oldRow + oldIn]; // bias
+  }
+
+  // Layer 2: structure unchanged, copy verbatim.
+  for (let i = 0; i < newL2; i++) {
+    out[newL2Off + i] = oldWeights[oldL2Off + i];
+  }
+
+  // Layer 3: copy outputs that exist in both, init new ones.
+  const oldL3Off = oldL2Off + newL2;
+  const newL3Off = newL2Off + newL2;
+  const outStride = numH2 + 1;
+  const sharedOut = Math.min(oldOut, newOut);
+  for (let o = 0; o < sharedOut; o++) {
+    for (let i = 0; i < outStride; i++) {
+      out[newL3Off + o * outStride + i] = oldWeights[oldL3Off + o * outStride + i];
+    }
+  }
+  for (let o = oldOut; o < newOut; o++) {
+    for (let i = 0; i < outStride; i++) {
+      out[newL3Off + o * outStride + i] = (Math.random() - 0.5) * 0.4;
+    }
+  }
+
+  return out;
 }
