@@ -63,6 +63,7 @@ export class NeuralNet {
           this.weights[idx++] = glorotUniform(fanIn, fanOut);
         }
       }
+      applyOutputBiasOverrides(this.weights, layers);
     }
 
     // Pre-allocated activation buffers — reused across forward calls so we
@@ -112,6 +113,21 @@ export class NeuralNet {
 // constant across architecture bumps; only the vision section's size has
 // ever varied.
 const NON_VISION_INPUTS = 10;
+
+// After randomly-initialising a brain, tilt specific output biases so the
+// behaviour starts in a known place. Currently only output[3] (poison) is
+// pulled strongly negative so fresh brains emit ~nothing — emission has to
+// be discovered by mutation rather than coming out of the box.
+function applyOutputBiasOverrides(weights, layers) {
+  const outIdx = 3;
+  const lastLayer = layers.length - 1;
+  if (lastLayer < 1 || layers[lastLayer] <= outIdx) return;
+  let off = 0;
+  for (let i = 1; i < lastLayer; i++) off += (layers[i - 1] + 1) * layers[i];
+  const lastIn = layers[lastLayer - 1];
+  const stride = lastIn + 1;
+  weights[off + outIdx * stride + lastIn] = CONFIG.poisonInitBias;
+}
 
 // Builds a fresh weight buffer for `newLayers` and copies whatever it can
 // from `oldWeights` according to the documented sensor layout (vision
@@ -199,6 +215,11 @@ function migrateWeights(oldWeights, newLayers, totalNew) {
   for (let o = oldOut; o < newOut; o++) {
     for (let i = 0; i < outStride; i++) {
       out[newL3Off + o * outStride + i] = (Math.random() - 0.5) * 0.4;
+    }
+    // Mirror the random-init pathway: bias output[3] (poison) to silent
+    // start instead of leaving it at small random.
+    if (o === 3) {
+      out[newL3Off + o * outStride + (outStride - 1)] = CONFIG.poisonInitBias;
     }
   }
 

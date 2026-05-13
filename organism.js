@@ -126,10 +126,9 @@ export class Organism {
     //    intent every tick (no gate, no cooldown) and drops puffs at a rate
     //    that scales with intent too. High sustained intent burns through
     //    reserves fast — over-emission really does kill via starvation.
-    //    Suppressed entirely while inside the organism's own house — no
-    //    cost, no puffs — because home is the safe space and burning energy
-    //    on defence there is wasteful.
-    if (!inOwnHouse && poisonIntent > CONFIG.poisonNoiseFloor) {
+    //    No house exemption: evolution is left to discover that emitting
+    //    inside the safe zone is wasteful and select against it via cost.
+    if (poisonIntent > CONFIG.poisonNoiseFloor) {
       this.energy -= poisonIntent * CONFIG.poisonCostPerSec * dtSec;
       this._poisonAccum += poisonIntent * CONFIG.poisonEmitsPerSec * dtSec;
       while (this._poisonAccum >= 1) {
