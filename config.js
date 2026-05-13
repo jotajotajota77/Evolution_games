@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.32',
+  version: 'v1.33',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -170,7 +170,7 @@ export const CONFIG = {
   // burned per second. There is no on/off gate or cooldown; an organism
   // that holds out[3] near 1 will starve itself.
   poisonNoiseFloor: 0.08,          // intent below this leaves no trail (silences NN babble)
-  poisonCostPerSec: 14,            // energy/sec at full intent (intent=1)
+  poisonCostPerSec: 30,            // energy/sec at full intent (intent=1)
   poisonEmitsPerSec: 14,           // puffs/sec at full intent — dense spacing makes the trail look smooth
   poisonDurationSec: 1.6,          // each puff's lifespan
   poisonRadius: 12,                // baseline puff radius (sprite scales it; collision radius too)

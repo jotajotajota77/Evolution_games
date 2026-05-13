@@ -1105,18 +1105,6 @@ function setupBottomBar() {
     CONFIG.mutationEventChance = v / 100;
   });
 
-  // Settings: poison cost-per-second slider — temporary tuning knob.
-  // Writes CONFIG.poisonCostPerSec live; next tick organisms see the new
-  // value when they pay for emission.
-  const poisonSlider = document.getElementById('poison-cost');
-  const poisonValueEl = document.getElementById('poison-cost-value');
-  poisonSlider.value = String(CONFIG.poisonCostPerSec);
-  poisonValueEl.textContent = String(CONFIG.poisonCostPerSec);
-  poisonSlider.addEventListener('input', () => {
-    const v = parseInt(poisonSlider.value, 10);
-    poisonValueEl.textContent = String(v);
-    CONFIG.poisonCostPerSec = v;
-  });
 
   // Dismiss popups on outside click — but only after the click finishes
   // (otherwise the very click that opens a popup also closes it).
