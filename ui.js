@@ -66,6 +66,7 @@ export function showHouseModal(suggested, existingLineages, onConfirm, onCancel,
     form.elements['predatorsAllowed'].checked = !!editing.zone.predatorsAllowed;
     form.elements['gradualReduction'].checked = !!editing.zone.gradualReduction;
     form.elements['foodDensityFloor'].value = editing.zone.foodDensityFloor ?? d.foodDensityFloor;
+    form.elements['persistence'].checked = !!editing.zone.persistence;
     form.elements['transFromInside'].checked = !!editing.barrier.transparentFromInside;
     form.elements['transFromOutside'].checked = !!editing.barrier.transparentFromOutside;
   } else {
@@ -78,6 +79,7 @@ export function showHouseModal(suggested, existingLineages, onConfirm, onCancel,
     form.elements['predatorsAllowed'].checked = d.predatorsAllowed;
     form.elements['gradualReduction'].checked = d.gradualReduction;
     form.elements['foodDensityFloor'].value = d.foodDensityFloor;
+    form.elements['persistence'].checked = d.persistence;
     form.elements['transFromInside'].checked = d.transparentFromInside;
     form.elements['transFromOutside'].checked = d.transparentFromOutside;
   }
@@ -102,6 +104,7 @@ export function showHouseModal(suggested, existingLineages, onConfirm, onCancel,
       predatorsAllowed: form.elements['predatorsAllowed'].checked,
       gradualReduction: form.elements['gradualReduction'].checked,
       foodDensityFloor: clampNum(form.elements['foodDensityFloor'].value, 0, 50, d.foodDensityFloor),
+      persistence: form.elements['persistence'].checked,
       transparentFromInside: form.elements['transFromInside'].checked,
       transparentFromOutside: form.elements['transFromOutside'].checked,
       allowedLineages,

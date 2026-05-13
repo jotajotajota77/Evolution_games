@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.38',
+  version: 'v1.39',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -137,6 +137,10 @@ export const CONFIG = {
     // sim-seconds, clamped at foodDensityFloor.
     gradualReduction: false,
     foodDensityFloor: 0.5,
+    // Persistence: when the last alive organism of this lineage dies, spawn
+    // housePersistenceCopies exact clones (same brain, same drift) inside
+    // the house so the lineage doesn't go extinct.
+    persistence: false,
   },
 
   // Gradual food-density reduction (per house, when its zone.gradualReduction
@@ -144,6 +148,11 @@ export const CONFIG = {
   // this is exactly 30 in-game days.
   houseGradualReductionStepSec: 30 * 90,
   houseGradualReductionAmount: 0.1,
+
+  // Persistence (per house, when its zone.persistence is on). Number of
+  // clones of the last-to-die organism that spawn inside the house when
+  // its lineage hits zero alive members.
+  housePersistenceCopies: 10,
 
   // Placement tool constraints.
   houseMinRadius: 30,

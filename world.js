@@ -542,17 +542,54 @@ export class World {
       this.predators = aliveP;
     }
 
-    // Cull dead organisms in a single sweep.
+    // Cull dead organisms in a single sweep. Along the way we count alive
+    // organisms per lineage and remember the most recently-dead one per
+    // lineage so the persistence respawn (below) has a template to clone.
+    let aliveByLin = null;
+    let lastDeadByLin = null;
     if (this.organisms.length) {
       const alive = [];
+      aliveByLin = new Map();
+      lastDeadByLin = new Map();
       for (const o of this.organisms) {
         if (o.alive) {
           alive.push(o);
-        } else if (o.causeOfDeath && this.deathsByCause[o.causeOfDeath] !== undefined) {
-          this.deathsByCause[o.causeOfDeath]++;
+          aliveByLin.set(o.lineageId, (aliveByLin.get(o.lineageId) || 0) + 1);
+        } else {
+          if (o.causeOfDeath && this.deathsByCause[o.causeOfDeath] !== undefined) {
+            this.deathsByCause[o.causeOfDeath]++;
+          }
+          lastDeadByLin.set(o.lineageId, o);
         }
       }
       this.organisms = alive;
+    }
+
+    // Persistence respawn — for every lineage that just hit zero alive AND
+    // has a house with the persistence toggle on, spawn N clones of the
+    // last organism that died inside the house. They keep the deceased's
+    // brain, colour drift, and species ids (same species, fresh bodies).
+    if (lastDeadByLin && lastDeadByLin.size > 0) {
+      for (const [lineageId, deceased] of lastDeadByLin) {
+        if ((aliveByLin.get(lineageId) || 0) > 0) continue;
+        const lin = this.lineages.get(lineageId);
+        if (!lin || !lin.house) continue;
+        if (!lin.house.zone.persistence) continue;
+        const house = lin.house;
+        for (let i = 0; i < CONFIG.housePersistenceCopies; i++) {
+          const pt = sampleInCircle(house.x, house.y, house.radius * 0.9);
+          const clone = new Organism(
+            pt.x, pt.y, lineageId,
+            deceased.brain.clone(),
+            [deceased.colorDrift[0], deceased.colorDrift[1], deceased.colorDrift[2]],
+          );
+          clone.energy = CONFIG.organismStartEnergy;
+          clone.generation = deceased.generation;
+          clone.speciesId = deceased.speciesId;
+          clone.budSpeciesId = deceased.budSpeciesId;
+          this.organisms.push(clone);
+        }
+      }
     }
 
     // Sweep eaten food.

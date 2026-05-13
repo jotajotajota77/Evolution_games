@@ -1264,6 +1264,7 @@ function handleEdit(x, y) {
         house.zone.predatorsAllowed = data.predatorsAllowed;
         house.zone.gradualReduction = data.gradualReduction;
         house.zone.foodDensityFloor = data.foodDensityFloor;
+        house.zone.persistence = data.persistence;
         // If reduction was just turned on, seed the next-reduction timer
         // from the current world tick so the first drop happens one step
         // from now (not retroactive).
@@ -1357,6 +1358,7 @@ function handlePlaceHouse(x, y, radius) {
           predatorsAllowed: data.predatorsAllowed,
           gradualReduction: data.gradualReduction,
           foodDensityFloor: data.foodDensityFloor,
+          persistence: data.persistence,
         },
         {
           transparentFromInside: data.transparentFromInside,
