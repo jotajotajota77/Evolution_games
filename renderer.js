@@ -146,28 +146,50 @@ export function drawOrganismHighlight(org) {
   ctx.shadowBlur = 0;
 }
 
-// Poison clouds — pulsing green discs that expand and fade as they age.
-// Drawn under organisms / predators so the entities sit on top.
+// Cached soft-radial sprite used to paint poison puffs. Drawing the same
+// blurred-edge bitmap at each puff position (with per-puff scale + alpha)
+// gives a smoke-trail look without any visible hard circle. Built lazily
+// the first time a puff renders.
+let poisonSprite = null;
+
+function buildPoisonSprite() {
+  const SZ = 128;
+  const cnv = document.createElement('canvas');
+  cnv.width = SZ; cnv.height = SZ;
+  const c = cnv.getContext('2d');
+  const [r, g, b] = CONFIG.poisonColor;
+  const grad = c.createRadialGradient(SZ / 2, SZ / 2, 0, SZ / 2, SZ / 2, SZ / 2);
+  // Soft falloff: dense core, long fade to transparent edge — overlapping
+  // sprites blend into a continuous smoke wisp.
+  grad.addColorStop(0,    `rgba(${r}, ${g}, ${b}, 0.9)`);
+  grad.addColorStop(0.25, `rgba(${r}, ${g}, ${b}, 0.5)`);
+  grad.addColorStop(0.55, `rgba(${r}, ${g}, ${b}, 0.18)`);
+  grad.addColorStop(1,    `rgba(${r}, ${g}, ${b}, 0)`);
+  c.fillStyle = grad;
+  c.fillRect(0, 0, SZ, SZ);
+  return cnv;
+}
+
+// Drawn under organisms so they sit on top. Each puff is a scaled bitmap
+// blit with per-puff alpha — no hard circle edge, no shadowBlur cost.
 export function drawPoisons(world) {
   if (!p || !world.poisons.length) return;
+  if (!poisonSprite) poisonSprite = buildPoisonSprite();
   const ctx = p.drawingContext;
-  const [r, g, b] = CONFIG.poisonColor;
   const baseR = CONFIG.poisonRadius;
   for (const pn of world.poisons) {
     const life = pn.ageSec / CONFIG.poisonDurationSec; // 0..1
     const intensity = pn.intensity ?? 1;
-    // Alpha fades with age, scales with intensity. Radius grows slightly as
-    // the puff disperses and also scales with intensity, so a strong exhale
-    // leaves a fat puff and a wisp leaves a thin one.
-    const alpha = (1 - life) * 0.55 * (0.4 + 0.6 * intensity);
-    const radius = baseR * (0.45 + 0.55 * intensity) * (0.7 + life * 0.7);
-    ctx.shadowBlur = 18 * intensity * (1 - life);
-    ctx.shadowColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    p.noStroke();
-    p.fill(r, g, b, alpha * 255);
-    p.circle(pn.x, pn.y, radius * 2);
+    // Alpha fades with age, scales with intensity. The sprite already has
+    // its own falloff baked in; this multiplies on top.
+    const alpha = (1 - life) * 0.6 * (0.45 + 0.55 * intensity);
+    // Half-extent of the drawn sprite in world pixels. Slightly bigger as
+    // it ages so the puff visually disperses, and bigger again with intent.
+    const half = baseR * 2.4 * (0.55 + 0.45 * intensity) * (0.8 + life * 0.5);
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(poisonSprite, pn.x - half, pn.y - half, half * 2, half * 2);
   }
-  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
 }
 
 // Predators — bigger, saturated red, strong glow, tiny heading tick so the
