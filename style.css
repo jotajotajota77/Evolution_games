@@ -19,7 +19,14 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
-  height: 100%;
+  /* Dynamic viewport units so the layout follows the URL bar collapse +
+     extends into display cutouts (paired with viewport-fit=cover). 100vh
+     stays as a fallback for older browsers. */
+  height: 100vh;
+  height: 100dvh;
+  width: 100vw;
+  margin: 0;
+  padding: 0;
   background: var(--bg-deep);
   color: var(--text);
   font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
@@ -31,7 +38,13 @@ html, body {
 /* ==========  STAGE  ========== */
 #stage {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
   background: var(--bg-deep);
   overflow: hidden;
 }

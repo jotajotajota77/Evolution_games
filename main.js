@@ -56,14 +56,22 @@ const sketch = (p) => {
     state.lastFrameMs = performance.now();
     p.frameRate(CONFIG.targetFps);
 
-    window.addEventListener('resize', () => {
+    const refit = () => {
       const nw = host.clientWidth;
       const nh = host.clientHeight;
+      if (nw === p.width && nh === p.height) return;
       p.resizeCanvas(nw, nh);
       rebuildVignette(nw, nh);
       paintBackground();
       state.world.resize(nw, nh);
-    });
+    };
+    window.addEventListener('resize', refit);
+    // Mobile browsers don't always fire window.resize when the URL bar
+    // collapses or the visible viewport changes (notch / cutout). Listen
+    // to visualViewport.resize too so the canvas always fills.
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', refit);
+    }
   };
 
   p.draw = () => {
