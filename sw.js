@@ -19,7 +19,9 @@ self.addEventListener('fetch', (e) => {
   // PWA install on Chrome.
   if (
     url.pathname.endsWith('/manifest.webmanifest') ||
-    url.pathname.endsWith('/icon.svg')
+    url.pathname.endsWith('/icon.svg') ||
+    url.pathname.endsWith('/icon-192.png') ||
+    url.pathname.endsWith('/icon-512.png')
   ) {
     return; // fall through to default browser handling
   }
