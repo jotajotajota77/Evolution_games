@@ -105,6 +105,9 @@ export class World {
     // Used by house persistence to clone the last few deceased instead of
     // only the very last one. Trimmed in the cull sweep to template count.
     this.recentDeathsByLin = new Map();
+    // Next tickSec at which the open-world food rate should auto-reduce
+    // (only consulted when CONFIG.worldGradualReduction is on).
+    this._nextWorldReductionTickSec = null;
 
     // Day/night state. Recomputed every tick from tickSec so sub-stepping
     // and speed multipliers don't drift. daylight is a smooth 0..1 signal:
@@ -205,6 +208,7 @@ export class World {
     for (const h of this.houses) h.foodSpawnAccumulator = 0;
     for (const z of this.zones) z.foodSpawnAccumulator = 0;
     this.recentDeathsByLin.clear();
+    this._nextWorldReductionTickSec = null;
     this.tickSec = CONFIG.startAtNoon ? CONFIG.dayLengthSec / 2 : 0;
     this._recomputeDayCycle();
     this.foodSpawnAccumulator = 0;
@@ -215,6 +219,9 @@ export class World {
     // Used by house persistence to clone the last few deceased instead of
     // only the very last one. Trimmed in the cull sweep to template count.
     this.recentDeathsByLin = new Map();
+    // Next tickSec at which the open-world food rate should auto-reduce
+    // (only consulted when CONFIG.worldGradualReduction is on).
+    this._nextWorldReductionTickSec = null;
   }
 
   _rebuildPhylo() {
@@ -473,6 +480,24 @@ export class World {
   update(dtSec) {
     this.tickSec += dtSec;
     this._recomputeDayCycle();
+
+    // Open-world food spawn rate also supports an optional gradual
+    // reduction (independent of per-house reduction).
+    if (CONFIG.worldGradualReduction) {
+      const step = (CONFIG.worldReductionIntervalDays || 30) * CONFIG.dayLengthSec;
+      if (this._nextWorldReductionTickSec == null) {
+        this._nextWorldReductionTickSec = this.tickSec + step;
+      } else {
+        const floor = CONFIG.worldFoodRateFloor ?? 0;
+        const amount = CONFIG.worldFoodReductionAmount ?? 1;
+        while (this.tickSec >= this._nextWorldReductionTickSec) {
+          CONFIG.foodSpawnRatePerSec = Math.max(floor, CONFIG.foodSpawnRatePerSec - amount);
+          this._nextWorldReductionTickSec += step;
+        }
+      }
+    } else {
+      this._nextWorldReductionTickSec = null;
+    }
 
     // Gradual food-density reduction per house. Each house ticks down by
     // CONFIG.houseGradualReductionAmount every (reductionIntervalDays * day

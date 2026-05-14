@@ -1012,6 +1012,50 @@ function setupBottomBar() {
     });
   });
 
+  // World popup — open-world food spawn rate (writes CONFIG live, and stays
+  // in sync when the auto-reduction below ticks the rate down).
+  const foodSlider = document.getElementById('food-spawn-rate');
+  const foodValueEl = document.getElementById('food-spawn-rate-value');
+  if (foodSlider && foodValueEl) {
+    foodSlider.value = String(CONFIG.foodSpawnRatePerSec);
+    foodValueEl.textContent = String(CONFIG.foodSpawnRatePerSec);
+    foodSlider.addEventListener('input', () => {
+      const v = parseInt(foodSlider.value, 10);
+      foodValueEl.textContent = String(v);
+      CONFIG.foodSpawnRatePerSec = v;
+    });
+    // Poll for world auto-reductions and reflect them in the slider so the
+    // displayed value never drifts from the actual config.
+    setInterval(() => {
+      const cur = Math.round(CONFIG.foodSpawnRatePerSec);
+      if (foodSlider.value !== String(cur)) {
+        foodSlider.value = String(cur);
+        foodValueEl.textContent = String(cur);
+      }
+    }, 1000);
+  }
+
+  // World popup — open-world gradual food reduction controls.
+  const worldRedToggle = document.getElementById('world-reduction');
+  const worldRedInterval = document.getElementById('world-reduction-interval');
+  const worldRedFloor = document.getElementById('world-reduction-floor');
+  if (worldRedToggle && worldRedInterval && worldRedFloor) {
+    worldRedToggle.checked = CONFIG.worldGradualReduction;
+    worldRedInterval.value = String(CONFIG.worldReductionIntervalDays);
+    worldRedFloor.value = String(CONFIG.worldFoodRateFloor);
+    worldRedToggle.addEventListener('change', () => {
+      CONFIG.worldGradualReduction = worldRedToggle.checked;
+    });
+    worldRedInterval.addEventListener('input', () => {
+      const v = parseInt(worldRedInterval.value, 10);
+      if (Number.isFinite(v) && v >= 1) CONFIG.worldReductionIntervalDays = v;
+    });
+    worldRedFloor.addEventListener('input', () => {
+      const v = parseInt(worldRedFloor.value, 10);
+      if (Number.isFinite(v) && v >= 0) CONFIG.worldFoodRateFloor = v;
+    });
+  }
+
   // World popup speed + reset
   popups.world.querySelectorAll('.speed-btn').forEach((b) => {
     b.addEventListener('click', () => {

@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.46',
+  version: 'v1.47',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -27,7 +27,15 @@ export const CONFIG = {
   startAtNoon: true,
 
   // Food
-  foodSpawnRatePerSec: 14,          // global uniform spawn (no zones yet)
+  foodSpawnRatePerSec: 14,          // global uniform spawn (no zones yet) — live-tunable in the world popup
+  // Optional auto-reduction of the open-world spawn rate. Independent of
+  // any per-house reduction. When enabled the world ticks
+  // foodSpawnRatePerSec down by worldFoodReductionAmount every
+  // worldReductionIntervalDays in-game days, clamped at worldFoodRateFloor.
+  worldGradualReduction: false,
+  worldReductionIntervalDays: 30,
+  worldFoodReductionAmount: 1,
+  worldFoodRateFloor: 2,
   foodMaxCount: 700,                // hard cap to keep canvas readable
   foodEnergy: 28,                   // energy gained on eat
   foodRadius: 3,

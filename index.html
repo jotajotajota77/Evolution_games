@@ -100,6 +100,25 @@
     </div>
 
     <div id="popup-world" class="popup hidden" data-anchor="world">
+      <div class="popup-title">open-world food density</div>
+      <div class="slider-row">
+        <input type="range" id="food-spawn-rate" min="0" max="60" step="1" value="14" />
+        <span class="slider-value" id="food-spawn-rate-value">14</span>
+      </div>
+      <div class="popup-hint">spawns per second in the open world. independent from each house's density.</div>
+
+      <div class="form-row">
+        <label class="checkbox"><input type="checkbox" id="world-reduction" /> gradual food reduction</label>
+      </div>
+      <div class="form-row">
+        <label>interval (days)</label>
+        <input type="number" id="world-reduction-interval" min="1" max="365" step="1" value="30" />
+      </div>
+      <div class="form-row">
+        <label>rate floor</label>
+        <input type="number" id="world-reduction-floor" min="0" max="60" step="1" value="2" />
+      </div>
+
       <div class="popup-title">animation speed</div>
       <div class="speed-grid">
         <button class="speed-btn" data-speed="0.5">0.5x</button>
