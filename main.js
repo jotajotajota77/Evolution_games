@@ -1408,6 +1408,21 @@ function setupPwa() {
     screen.orientation.lock('natural').catch(() => { /* not supported in this context */ });
   }
 
+  // Fullscreen attempt — manifest "display: fullscreen" handles the
+  // installed PWA path. For a regular browser tab, request fullscreen on
+  // the first user gesture (browsers reject the call without one). Only
+  // runs once and only when not already fullscreen.
+  const tryFullscreen = () => {
+    document.removeEventListener('pointerdown', tryFullscreen);
+    if (document.fullscreenElement) return;
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!req) return;
+    try { req.call(el, { navigationUI: 'hide' }).catch(() => {}); }
+    catch (_) { /* not allowed in this context */ }
+  };
+  document.addEventListener('pointerdown', tryFullscreen, { once: true });
+
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredInstallPrompt = e;
