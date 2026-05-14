@@ -3,10 +3,11 @@ import { Lineage, ensureNextLineageId } from './lineage.js';
 import { House, ensureNextHouseId } from './house.js';
 import { Zone, ensureNextZoneId } from './zone.js';
 import { Barrier, ensureNextBarrierId } from './barrier.js';
-import { Predator, ensureNextPredatorId } from './predator.js';
+import { Predator, ensureNextPredatorId, PREDATOR_LINEAGE_ID } from './predator.js';
 import { Organism } from './organism.js';
-import { NeuralNet } from './neuralnet.js';
+import { NeuralNet, PREDATOR_NN_OPTS } from './neuralnet.js';
 import { Phylo, PhyloSpecies, ensureNextSpeciesId } from './phylo.js';
+import { CONFIG } from './config.js';
 import { randomBinomial, deriveChildName } from './names.js';
 
 const STORAGE_KEY = 'evolution_save_v1';
@@ -102,9 +103,15 @@ function serialize(w) {
     })),
     phylo: snapshotPhylo(w.phylo),
     phyloBud: snapshotPhylo(w.phyloBud),
+    phyloPred: w.phyloPred ? snapshotPhylo(w.phyloPred) : null,
     predators: w.predators.map((p) => ({
       id: p.id, x: p.x, y: p.y, heading: p.heading, currentSpeed: p.currentSpeed,
       energy: p.energy, ageSec: p.ageSec,
+      // v1.53: predators carry an NN, generation, drift, species id.
+      generation: p.generation ?? 0,
+      colorDrift: p.colorDrift ? [...p.colorDrift] : [0, 0, 0],
+      predSpeciesId: p.predSpeciesId ?? null,
+      brain: p.brain ? Array.from(p.brain.weights) : null,
     })),
   };
 }
@@ -222,6 +229,20 @@ function deserialize(d) {
       w.phyloBud.initLineageRoot(lin, w.tickSec);
     }
   }
+
+  // v1.53: predator phylogeny. Uses budding mode and a single pseudo-
+  // lineage rooted at the predator base colour. Legacy saves (no phyloPred)
+  // get a fresh tree with the root re-seeded.
+  w.phyloPred = restorePhylo(d.phyloPred, 'budding');
+  w.phyloPred.idField = 'predSpeciesId';
+  w.phyloPred.entityList = (world) => world.predators;
+  if (!d.phyloPred || !w.phyloPred.lineageRoots.has(PREDATOR_LINEAGE_ID)) {
+    w.phyloPred.initLineageRoot(
+      { id: PREDATOR_LINEAGE_ID, color: CONFIG.predatorColor, name: 'Hunters' },
+      w.tickSec,
+    );
+  }
+
   ensureNextSpeciesId(maxSpeciesId);
 
   for (const od of d.organisms || []) {
@@ -239,12 +260,25 @@ function deserialize(d) {
 
   let maxPredatorId = 0;
   for (const pd of d.predators || []) {
-    const p = new Predator(pd.x, pd.y);
+    // If a brain is in the snapshot, hydrate it through the NeuralNet
+    // migration path (handles future arch bumps). Otherwise (legacy save)
+    // let the Predator constructor build a fresh random brain.
+    let brain = null;
+    if (pd.brain && pd.brain.length) {
+      brain = new NeuralNet(
+        CONFIG.predatorNnArchitecture,
+        new Float32Array(pd.brain),
+        PREDATOR_NN_OPTS,
+      );
+    }
+    const p = new Predator(pd.x, pd.y, brain, pd.colorDrift);
     if (pd.id != null) { p.id = pd.id; if (pd.id > maxPredatorId) maxPredatorId = pd.id; }
     p.heading = pd.heading;
     p.currentSpeed = pd.currentSpeed;
     p.energy = pd.energy;
     p.ageSec = pd.ageSec;
+    p.generation = pd.generation || 0;
+    p.predSpeciesId = pd.predSpeciesId ?? w.phyloPred.lineageRoots.get(PREDATOR_LINEAGE_ID) ?? null;
     w.predators.push(p);
   }
   ensureNextPredatorId(maxPredatorId + 1);

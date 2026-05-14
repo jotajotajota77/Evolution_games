@@ -248,6 +248,9 @@ export function drawPredators(world) {
   const ctx = p.drawingContext;
   ctx.shadowBlur = 14;
   p.noStroke();
+  const baseR = CONFIG.predatorColor[0];
+  const baseG = CONFIG.predatorColor[1];
+  const baseB = CONFIG.predatorColor[2];
   for (const pr of world.predators) {
     if (!pr.alive) continue;
     // Predator energy has no upper bound, so we just floor the alpha at a
@@ -255,13 +258,19 @@ export function drawPredators(world) {
     const energyAlpha = 200 + Math.min(55, Math.max(0, pr.energy) / 100 * 55);
     if (pr.poisonedRemainingSec > 0) {
       // Vivid lime-yellow tint while poisoned — instantly readable signal
-      // that the predator is slowed.
+      // that the predator is slowed. Overrides any per-individual drift.
       const [pr1, pg1, pb1] = CONFIG.predatorPoisonedColor;
       ctx.shadowColor = `rgba(${pr1}, ${pg1}, ${pb1}, 0.9)`;
       p.fill(pr1, pg1, pb1, energyAlpha);
     } else {
-      ctx.shadowColor = 'rgba(255, 90, 100, 0.95)';
-      p.fill(255, 90, 100, energyAlpha);
+      // v1.53: per-predator colour drift. Accumulates across mutated
+      // births; clamped per channel so red stays readable as red.
+      const d = pr.colorDrift;
+      const r = clampByte(baseR + (d ? d[0] : 0));
+      const g = clampByte(baseG + (d ? d[1] : 0));
+      const b = clampByte(baseB + (d ? d[2] : 0));
+      ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.95)`;
+      p.fill(r, g, b, energyAlpha);
     }
     p.circle(pr.x, pr.y, CONFIG.predatorRadius * 2);
   }

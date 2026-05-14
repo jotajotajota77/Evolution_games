@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.52',
+  version: 'v1.53',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -250,6 +250,51 @@ export const CONFIG = {
   predatorEnergyPerKill: 55,
   // No max-energy cap and no eat cooldown — predators can chain kills and
   // accumulate reserves freely.
+
+  // v1.53: predators are NN-driven. 8 rays × 2 channels (distance + type) +
+  // 6 proprio/context fields = 22 inputs. Outputs: turn / speed /
+  // reproduce. No FOOD type in the vision table — predators don't eat
+  // pellets. The passable channel is dropped because predators bounce
+  // off everything blockable.
+  predatorNnArchitecture: [22, 14, 8, 3],
+  predatorVisionRays: 8,
+  predatorVisionRange: 180,            // sensible default ~ predatorSenseRange + slop
+  predatorVisionFan: Math.PI * 2,      // full circle (rays evenly spaced)
+
+  // Reproduction is toggleable in the world popup. When off, the third NN
+  // output is ignored and predators only spawn from user actions.
+  predatorReproductionEnabled: true,
+  predatorReproEnergyThresh: 86,       // ≥ this energy before reproduce intent counts
+  predatorReproIntentThresh: 0.6,      // sigmoid(out[2]) needed
+  predatorMaxPopulation: 60,           // cap; cap-checked at spawn time
+  predatorChildOffsetMax: 14,          // px; child placement radius around parent
+
+  // Per-predator mutation params — kept separate from the organism gains
+  // because the predator brain is smaller (~430 weights).
+  predatorMutationRate: 0.08,
+  predatorMutationSigma: 0.22,
+
+  // Inheritable RGB drift accumulated on mutated births. Sigma small so red
+  // stays readable as red; clamped so drift can't fully invert hue.
+  predatorColorDriftSigma: 4,
+  predatorColorDriftMax: 60,
+
+  // Base body colour (drift accumulates on top per-individual). Poison
+  // override stays in predatorPoisonedColor.
+  predatorColor: [255, 90, 100],
+
+  // Output-bias overrides on a freshly randomised predator brain. Speed
+  // tilted positive so vanilla predators cruise instead of standing still;
+  // reproduce tilted strongly negative so spawn-on-create doesn't happen
+  // before the predator has earned a kill.
+  predatorSpeedInitBias: 1.2,          // sigmoid ≈ 0.77
+  predatorReproInitBias: -2.0,         // sigmoid ≈ 0.12
+
+  // Strength of the hand-seeded "prey reflex" injected over Glorot init.
+  // Left-half-vision-rays seeing prey turns left, right-half mirrors. Big
+  // enough to dominate the random tail at spawn, small enough that
+  // mutation can erase it.
+  predatorPreyReflexStrength: 0.6,
 
   // Spatial hashing (phase 8). Cell size near the largest query radius so
   // each lookup touches O(1) cells regardless of population.

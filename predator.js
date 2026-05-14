@@ -1,4 +1,6 @@
 import { CONFIG } from './config.js';
+import { NeuralNet, sigmoid, gaussianRandom, PREDATOR_NN_OPTS } from './neuralnet.js';
+import { computePredatorSensors, PREDATOR_SENSOR_COUNT } from './predatorSensors.js';
 
 // Sentinel lineage id for predators. Never appears in any allowedLineages
 // set, so all the existing region access helpers (barriers, houses) reject
@@ -11,11 +13,15 @@ export function ensureNextPredatorId(min) {
   if (min > nextPredatorId) nextPredatorId = min;
 }
 
-// Scripted predator. No NN: steers toward the nearest organism and attacks
-// on contact. Energy decays continuously; each kill restores a chunk.
-// A short cooldown after a kill avoids machine-gun feeding.
+// v1.53: predators are NN-driven. Three outputs:
+//   out[0] → tanh   → turn intent ∈ [-1, 1]
+//   out[1] → sigmoid → desired speed ∈ [0, 1]
+//   out[2] → sigmoid → reproduce intent ∈ [0, 1] (gated by CONFIG flag)
+// The kill loop is kept as scripted (auto-attack on contact) — making the
+// brain learn "press button on contact" wastes evolutionary cycles and
+// would regress playability.
 export class Predator {
-  constructor(x, y) {
+  constructor(x, y, brain = null, colorDrift = null) {
     this.id = nextPredatorId++;
     this.x = x;
     this.y = y;
@@ -23,15 +29,24 @@ export class Predator {
     this.currentSpeed = 0;
     this.energy = CONFIG.predatorStartEnergy;
     this.ageSec = 0;
+    this.generation = 0;
     this.alive = true;
     this.causeOfDeath = null;
-    // Marker used by region helpers + sensor code.
     this.lineageId = PREDATOR_LINEAGE_ID;
     this.isPredator = true;
-    // Seconds remaining of poison-induced slowdown. While > 0 the predator
-    // continues to hunt + attack normally but its current speed is heavily
-    // multiplied down (see CONFIG.predatorPoisonSlowFactor).
     this.poisonedRemainingSec = 0;
+
+    this.brain = brain || new NeuralNet(CONFIG.predatorNnArchitecture, null, PREDATOR_NN_OPTS);
+    this.sensorBuffer = new Float32Array(PREDATOR_SENSOR_COUNT);
+    this.wantsToReproduce = false;
+
+    // Inheritable RGB drift accumulated on mutated births. Founders start
+    // at [0,0,0]; clamped per channel in spawnChild.
+    this.colorDrift = colorDrift ? [colorDrift[0], colorDrift[1], colorDrift[2]] : [0, 0, 0];
+
+    // Phylogeny tracking — set by world helpers for founders, inherited by
+    // descendants in spawnChild.
+    this.predSpeciesId = null;
   }
 
   update(dtSec, world) {
@@ -46,37 +61,29 @@ export class Predator {
       this.poisonedRemainingSec = Math.max(0, this.poisonedRemainingSec - dtSec);
     }
 
-    // --- Targeting: nearest live organism within sense range.
-    const target = nearestPrey(this, world);
+    // 1. Sense
+    computePredatorSensors(this, world, this.sensorBuffer);
 
-    if (target) {
-      // Steer toward target, capped by turn rate.
-      const dx = target.x - this.x;
-      const dy = target.y - this.y;
-      const desired = Math.atan2(dy, dx);
-      let delta = desired - this.heading;
-      while (delta > Math.PI) delta -= 2 * Math.PI;
-      while (delta < -Math.PI) delta += 2 * Math.PI;
-      const maxTurn = CONFIG.predatorTurnRate * dtSec * CONFIG.targetFps;
-      if (delta > maxTurn) delta = maxTurn;
-      else if (delta < -maxTurn) delta = -maxTurn;
-      this.heading += delta;
-      this.currentSpeed = CONFIG.predatorMaxSpeed;
-    } else {
-      // Idle wander — slow drift so predators don't all stack at one spot.
-      this.heading += (Math.random() - 0.5) * 0.06;
-      this.currentSpeed = CONFIG.predatorMaxSpeed * 0.45;
-    }
+    // 2. Think
+    const out = this.brain.forward(this.sensorBuffer);
+    const turn = Math.tanh(out[0]);
+    const desiredSpeed = sigmoid(out[1]);
+    const reproduceIntent = out.length >= 3 ? sigmoid(out[2]) : 0;
 
-    // Poison slowdown applied last — affects both hunting + wander speeds.
+    // 3. Apply motion. Same stepScale convention as organisms; predator
+    //    constants (turn rate, max speed) calibrated at 60fps.
+    const stepScale = dtSec * CONFIG.targetFps;
+    this.heading += turn * CONFIG.predatorTurnRate * stepScale;
+    this.currentSpeed = desiredSpeed * CONFIG.predatorMaxSpeed;
+
+    // Poison slowdown applied AFTER the brain sets speed — affects whatever
+    // the NN chose this tick.
     if (this.poisonedRemainingSec > 0) {
       this.currentSpeed *= CONFIG.predatorPoisonSlowFactor;
     }
 
     const prevX = this.x;
     const prevY = this.y;
-
-    const stepScale = dtSec * CONFIG.targetFps;
     this.x += Math.cos(this.heading) * this.currentSpeed * stepScale;
     this.y += Math.sin(this.heading) * this.currentSpeed * stepScale;
 
@@ -86,16 +93,11 @@ export class Predator {
     if (this.y < 0) { this.y = 0; this.heading = -this.heading; }
     else if (this.y > world.height) { this.y = world.height; this.heading = -this.heading; }
 
-    // Drawn barriers: same enforcer as organisms — predator's lineage id
-    // never appears in any allowedLineages, so they always bounce.
+    // Drawn barriers + house + no-predator-zone bouncing.
     world.enforceBarrierCrossings(this, prevX, prevY);
-
-    // House + no-predator-zone bouncing.
     world.enforcePredatorBounds(this);
 
-    // --- Attack: every live organism within eat radius dies on this tick.
-    //     No cooldown, no energy cap — kills stack directly into reserves.
-    //     Spatial grid query first; pad by a few px for grid staleness.
+    // 4. Attack — every live organism within eat radius dies on this tick.
     const er = CONFIG.predatorEatRadius;
     const er2 = er * er;
     const nearby = world.gridOrgs.queryRadius(this.x, this.y, er + 4);
@@ -111,27 +113,58 @@ export class Predator {
       }
     }
 
-    // Energy decay; starvation if it falls to zero.
+    // 5. Energy decay; starvation if it falls to zero.
     this.energy -= CONFIG.predatorEnergyDecayPerSec * dtSec;
     if (this.energy <= 0) {
       this.alive = false;
       this.causeOfDeath = 'starvation';
+      return;
     }
+
+    // 6. Reproduction flag — world decides whether to actually spawn
+    //    (cap check + global toggle).
+    this.wantsToReproduce =
+      this.energy >= CONFIG.predatorReproEnergyThresh &&
+      reproduceIntent >= CONFIG.predatorReproIntentThresh;
+  }
+
+  // Called by world.update once cap-check + toggle passes. Mirrors the
+  // organism's asexual budding: parent keeps unmutated brain (well-adapted
+  // genome preserved), child gets a clone that mutates with probability
+  // CONFIG.mutationEventChance. Drift accumulates only on the mutated path.
+  spawnChild() {
+    this.energy *= 0.5;
+
+    const offsetAngle = Math.random() * Math.PI * 2;
+    const offsetDist = Math.random() * CONFIG.predatorChildOffsetMax;
+    const cx = this.x + Math.cos(offsetAngle) * offsetDist;
+    const cy = this.y + Math.sin(offsetAngle) * offsetDist;
+
+    const childBrain = this.brain.clone();
+    let drift;
+    if (Math.random() < CONFIG.mutationEventChance) {
+      childBrain.mutate(CONFIG.predatorMutationRate, CONFIG.predatorMutationSigma);
+      const sig = CONFIG.predatorColorDriftSigma;
+      const mx = CONFIG.predatorColorDriftMax;
+      drift = [
+        clampDrift(this.colorDrift[0] + gaussianRandom() * sig, mx),
+        clampDrift(this.colorDrift[1] + gaussianRandom() * sig, mx),
+        clampDrift(this.colorDrift[2] + gaussianRandom() * sig, mx),
+      ];
+    } else {
+      drift = [this.colorDrift[0], this.colorDrift[1], this.colorDrift[2]];
+    }
+
+    const child = new Predator(cx, cy, childBrain, drift);
+    child.energy = this.energy;
+    child.generation = this.generation + 1;
+    child.predSpeciesId = this.predSpeciesId;
+
+    this.wantsToReproduce = false;
+    return child;
   }
 }
 
-function nearestPrey(pred, world) {
-  const range = CONFIG.predatorSenseRange;
-  let best = null;
-  let bestD2 = range * range;
-  const candidates = world.gridOrgs.queryRadius(pred.x, pred.y, range + 4);
-  for (let i = 0; i < candidates.length; i++) {
-    const o = candidates[i];
-    if (!o.alive) continue;
-    const dx = o.x - pred.x;
-    const dy = o.y - pred.y;
-    const d2 = dx * dx + dy * dy;
-    if (d2 < bestD2) { bestD2 = d2; best = o; }
-  }
-  return best;
+function clampDrift(v, mx) {
+  return v > mx ? mx : (v < -mx ? -mx : v);
 }

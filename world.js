@@ -3,7 +3,7 @@ import { Organism } from './organism.js';
 import { Lineage } from './lineage.js';
 import { sampleInCircle } from './house.js';
 import { segmentsCross } from './barrier.js';
-import { Predator } from './predator.js';
+import { Predator, PREDATOR_LINEAGE_ID } from './predator.js';
 import { SpatialGrid } from './spatial.js';
 import { Phylo } from './phylo.js';
 import { randomBinomial } from './names.js';
@@ -12,6 +12,22 @@ import { randomBinomial } from './names.js';
 // by the region that produced it (open world, house zone, or non-house zone).
 function makeFood(x, y, energy) {
   return { x, y, eaten: false, phase: Math.random() * Math.PI * 2, energy };
+}
+
+// v1.53: predators are tracked in their own phylogeny tree (matriarchal /
+// budding mode). They share one pseudo-lineage rooted at the predator base
+// colour — speciation events split clades inside that one tree.
+const PREDATOR_PSEUDO_LINEAGE = {
+  id: PREDATOR_LINEAGE_ID,
+  color: CONFIG.predatorColor,
+  name: 'Hunters',
+};
+
+function makePredatorPhylo() {
+  return new Phylo('budding', {
+    idField: 'predSpeciesId',
+    entityList: (world) => world.predators,
+  });
 }
 
 // Per-region food spawn — works for both houses and non-house zones since
@@ -84,6 +100,13 @@ export class World {
       this.phylo.initLineageRoot(lin, 0);
       this.phyloBud.initLineageRoot(lin, 0);
     }
+    // v1.53: predator phylogeny — completely separate tree from the organism
+    // one. Uses budding mode so the "ancestor predator" stays visible when
+    // a divergent group buds off. All predators share a single pseudo-
+    // lineage (predator color, name "Hunters") since they have no per-
+    // lineage colour palette like organisms do.
+    this.phyloPred = makePredatorPhylo();
+    this.phyloPred.initLineageRoot(PREDATOR_PSEUDO_LINEAGE, 0);
 
     this.houses = [];
     this.zones = [];                  // non-house zones (phase 5)
@@ -198,6 +221,8 @@ export class World {
     this.barriers.length = 0;
     this.phylo = new Phylo('classic');
     this.phyloBud = new Phylo('budding');
+    this.phyloPred = makePredatorPhylo();
+    this.phyloPred.initLineageRoot(PREDATOR_PSEUDO_LINEAGE, 0);
   }
 
   _clearPopulationsAndCounters() {
@@ -234,6 +259,8 @@ export class World {
       this.phylo.initLineageRoot(lin, this.tickSec);
       this.phyloBud.initLineageRoot(lin, this.tickSec);
     }
+    this.phyloPred = makePredatorPhylo();
+    this.phyloPred.initLineageRoot(PREDATOR_PSEUDO_LINEAGE, this.tickSec);
   }
 
   // Ensures the default lineage exists. The name is rolled fresh from the
@@ -348,6 +375,10 @@ export class World {
     const pt = this.samplePredatorSpawn();
     if (!pt) return null;
     const pred = new Predator(pt.x, pt.y);
+    // Founder root for the predator phylogeny — newly user-spawned
+    // predators attach to the shared "Hunters" root species so the tree
+    // grows from a single ancestor regardless of when they were placed.
+    pred.predSpeciesId = this.phyloPred.lineageRoots.get(PREDATOR_LINEAGE_ID) ?? null;
     this.predators.push(pred);
     return pred;
   }
@@ -572,6 +603,19 @@ export class World {
     for (let i = 0; i < this.predators.length; i++) {
       this.predators[i].update(dtSec, this);
     }
+    // Reproduction (toggleable). Runs after update so wantsToReproduce
+    // reflects this tick's brain output. Cap-checked against
+    // CONFIG.predatorMaxPopulation.
+    if (CONFIG.predatorReproductionEnabled && this.predators.length) {
+      const cap = CONFIG.predatorMaxPopulation;
+      const predBorns = [];
+      for (const pr of this.predators) {
+        if (!pr.alive || !pr.wantsToReproduce) continue;
+        if (this.predators.length + predBorns.length >= cap) break;
+        predBorns.push(pr.spawnChild());
+      }
+      if (predBorns.length) this.predators.push(...predBorns);
+    }
     if (this.predators.length) {
       const aliveP = [];
       for (const pr of this.predators) if (pr.alive) aliveP.push(pr);
@@ -680,6 +724,7 @@ export class World {
     // own speciation rule. Both are no-ops between intervals.
     this.phylo.tick(this, dtSec);
     this.phyloBud.tick(this, dtSec);
+    this.phyloPred.tick(this, dtSec);
   }
 
   sampleOpenPoint() {

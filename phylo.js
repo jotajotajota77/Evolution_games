@@ -41,9 +41,13 @@ export class PhyloSpecies {
 // organism.budSpeciesId for budding). Phylo.idField points at the right
 // field so refresh + speciate touch the right column.
 export class Phylo {
-  constructor(mode = 'classic') {
+  constructor(mode = 'classic', opts = {}) {
     this.mode = mode;
-    this.idField = mode === 'budding' ? 'budSpeciesId' : 'speciesId';
+    // v1.53: idField and entityList are overridable so the same machinery
+    // tracks predators (entityList = w.predators, idField = predSpeciesId).
+    // Defaults preserve organism behaviour for existing callers.
+    this.idField = opts.idField || (mode === 'budding' ? 'budSpeciesId' : 'speciesId');
+    this.entityList = opts.entityList || ((world) => world.organisms);
     this.species = [];
     this.lineageRoots = new Map();   // lineageId → root speciesId
     this._sinceLastCheck = 0;
@@ -73,8 +77,9 @@ export class Phylo {
 
   _refreshPops(world) {
     for (let i = 0; i < this.species.length; i++) this.species[i].currentPop = 0;
-    for (let i = 0; i < world.organisms.length; i++) {
-      const s = this.getById(world.organisms[i][this.idField]);
+    const ents = this.entityList(world);
+    for (let i = 0; i < ents.length; i++) {
+      const s = this.getById(ents[i][this.idField]);
       if (s) s.currentPop++;
     }
     for (const s of this.species) {
@@ -87,7 +92,8 @@ export class Phylo {
 
   _maybeSpeciate(world) {
     const groups = new Map();
-    for (const o of world.organisms) {
+    const ents = this.entityList(world);
+    for (const o of ents) {
       const sid = o[this.idField];
       if (sid == null) continue;
       if (!groups.has(sid)) groups.set(sid, []);
@@ -163,8 +169,11 @@ export class Phylo {
     const staying   = absAbove < absBelow ? split.above : split.below;
     const branching = absAbove < absBelow ? split.below : split.above;
 
+    // Prefer the lineage palette; fall back to the parent species' own
+    // colour (used by entities like predators that aren't registered in
+    // world.lineages but still have a colour-carrying root species).
     const lin = world.lineages.get(parent.lineageId);
-    const base = lin ? lin.color : [200, 200, 220];
+    const base = lin ? lin.color : parent.color;
     const tickKey = Math.round(world.tickSec * 10);
     const seedBranch = `${parent.lineageId}-${tickKey}-branching`;
     const seedStay   = `${parent.lineageId}-${tickKey}-staying`;
@@ -190,8 +199,11 @@ export class Phylo {
     absA /= split.above.length;
     absB /= split.below.length;
     const branching = absA >= absB ? split.above : split.below;
+    // Prefer the lineage palette; fall back to the parent species' own
+    // colour (used by entities like predators that aren't registered in
+    // world.lineages but still have a colour-carrying root species).
     const lin = world.lineages.get(parent.lineageId);
-    const base = lin ? lin.color : [200, 200, 220];
+    const base = lin ? lin.color : parent.color;
     // Same seed shape as cladistic's branching child — names match across
     // trees for the same speciation event.
     const tickKey = Math.round(world.tickSec * 10);

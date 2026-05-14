@@ -499,8 +499,9 @@ const chartFactories = {
       return { chart: null, update };
     },
   }),
-  phylo:        () => phyloSpec('classic', 'phylogeny (cladistic)'),
-  phyloBud:     () => phyloSpec('budding',  'phylogeny (matriarchal)'),
+  phylo:        () => phyloSpec((w) => w.phylo,    'phylogeny (cladistic)'),
+  phyloBud:     () => phyloSpec((w) => w.phyloBud, 'phylogeny (matriarchal)'),
+  phyloPred:    () => phyloSpec((w) => w.phyloPred, 'phylogeny (predators)'),
   speciesPop:    () => speciesPopSpec('classic', 'population by species (cladistic)'),
   speciesPopBud: () => speciesPopSpec('budding',  'population by species (matriarchal)'),
 };
@@ -542,7 +543,7 @@ function speciesPopSpec(mode, title) {
 
 // Shared spec for both phylogeny charts. The only difference is which
 // Phylo instance on the world we render.
-function phyloSpec(mode, title) {
+function phyloSpec(getPhylo, title) {
   const w = Math.min(1280, Math.max(540, window.innerWidth - 40));
   const h = Math.min(820, Math.max(360, window.innerHeight - 120));
   return {
@@ -555,7 +556,7 @@ function phyloSpec(mode, title) {
       host.innerHTML = '<div class="fw-phylo"></div>';
       const treeEl = host.querySelector('.fw-phylo');
       const update = () => {
-        const phylo = mode === 'budding' ? state.world.phyloBud : state.world.phylo;
+        const phylo = getPhylo(state.world);
         renderPhyloTree(treeEl, phylo);
       };
       update();
@@ -1096,6 +1097,17 @@ function setupBottomBar() {
   popups.world.querySelector('[data-action="clear-predators"]').addEventListener('click', () => {
     state.world.predators.length = 0;
   });
+
+  // Predator reproduction toggle — writes CONFIG.predatorReproductionEnabled
+  // live. When off, the third NN output is ignored and predators only spawn
+  // from explicit user actions.
+  const predReproEl = document.getElementById('predator-reproduction');
+  if (predReproEl) {
+    predReproEl.checked = !!CONFIG.predatorReproductionEnabled;
+    predReproEl.addEventListener('change', () => {
+      CONFIG.predatorReproductionEnabled = predReproEl.checked;
+    });
+  }
 
   const saveStatus = document.getElementById('save-status');
   const loadBtn = document.getElementById('btn-load');
