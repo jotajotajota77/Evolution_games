@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.51',
+  version: 'v1.52',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -224,11 +224,12 @@ export const CONFIG = {
 
   // Firefly pulse — 5th NN output is purely cosmetic. Every organism always
   // pulses; out[4] (after sigmoid) lerps the pulse frequency between
-  // pulseMinFreq (calm breathing) and pulseMaxFreq (excited buzz). The
-  // pulse modulates the organism's glow halo, not its body, so the dot
-  // itself stays readable.
-  pulseMinFreq: 0.3,                  // Hz at sigmoid(out[4]) = 0
-  pulseMaxFreq: 2.5,                  // Hz at sigmoid(out[4]) = 1
+  // pulseMinFreq (slow breath, one cycle every ~10s) and pulseMaxFreq
+  // (one cycle per second). The pulse modulates the organism's glow halo,
+  // not its body, so the dot itself stays readable. The minimum is held
+  // strictly above zero so the breath never freezes.
+  pulseMinFreq: 0.1,                  // Hz at sigmoid(out[4]) = 0
+  pulseMaxFreq: 1.0,                  // Hz at sigmoid(out[4]) = 1
   // Negative initial bias for the poison output. sigmoid(-2.0) ≈ 0.12,
   // just above the noise floor (0.08), so fresh brains emit very weakly
   // and pay a small per-second cost — discoverable in either direction:
