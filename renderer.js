@@ -68,10 +68,12 @@ export function drawOrganisms(world) {
     // Energy modulates alpha so weak organisms visibly fade.
     const alpha = 140 + Math.min(115, (o.energy / 100) * 115);
     // Firefly breath: the glow halo waxes and wanes on the organism's own
-    // pulse phase. The dot itself is untouched so the position stays crisp.
-    const pulse = 0.55 + 0.45 * Math.sin(o.pulsePhase || 0);
+    // pulse phase. Baseline stays well above zero so the halo is always
+    // visible — the pulse swells it, doesn't extinguish it.
+    const pulse = 1 + 0.6 * Math.sin(o.pulsePhase || 0);  // range 0.4..1.6
+    const haloAlpha = Math.min(1, 0.9 * pulse);
     ctx.shadowBlur = CONFIG.glowOrganism * pulse;
-    ctx.shadowColor = `rgba(${r}, ${g}, ${b}, ${0.9 * pulse})`;
+    ctx.shadowColor = `rgba(${r}, ${g}, ${b}, ${haloAlpha})`;
     p.fill(r, g, b, alpha);
     p.circle(o.x, o.y, CONFIG.organismRadius * 2);
   }
