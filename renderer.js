@@ -56,6 +56,7 @@ export function drawOrganisms(world) {
   if (!p) return;
   const ctx = p.drawingContext;
   p.noStroke();
+  const bodyD = CONFIG.organismRadius * 2;
   for (const o of world.organisms) {
     const lin = world.lineages.get(o.lineageId);
     const base = lin ? lin.color : [200, 200, 220];
@@ -65,17 +66,23 @@ export function drawOrganisms(world) {
     const r = clampByte(base[0] + (d ? d[0] : 0));
     const g = clampByte(base[1] + (d ? d[1] : 0));
     const b = clampByte(base[2] + (d ? d[2] : 0));
+    // Firefly breath. pulse ∈ [0, 1] — 0 at dim, 1 at peak. Drawn as an
+    // explicit soft halo behind the body so the rhythm is unmistakable
+    // even on low-pixel-density displays where shadowBlur reads as flat.
+    const pulse = 0.5 + 0.5 * Math.sin(o.pulsePhase || 0);
+    const haloR = bodyD * (1.6 + 1.4 * pulse);    // 1.6..3.0 × body diameter
+    const haloA = 30 + 70 * pulse;                 // 30..100 of 255
+    ctx.shadowBlur = 0;
+    p.fill(r, g, b, haloA);
+    p.circle(o.x, o.y, haloR);
+
     // Energy modulates alpha so weak organisms visibly fade.
     const alpha = 140 + Math.min(115, (o.energy / 100) * 115);
-    // Firefly breath: the glow halo waxes and wanes on the organism's own
-    // pulse phase. Baseline stays well above zero so the halo is always
-    // visible — the pulse swells it, doesn't extinguish it.
-    const pulse = 1 + 0.6 * Math.sin(o.pulsePhase || 0);  // range 0.4..1.6
-    const haloAlpha = Math.min(1, 0.9 * pulse);
-    ctx.shadowBlur = CONFIG.glowOrganism * pulse;
-    ctx.shadowColor = `rgba(${r}, ${g}, ${b}, ${haloAlpha})`;
+    // The dot itself keeps the steady shadowBlur glow it always had.
+    ctx.shadowBlur = CONFIG.glowOrganism;
+    ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.9)`;
     p.fill(r, g, b, alpha);
-    p.circle(o.x, o.y, CONFIG.organismRadius * 2);
+    p.circle(o.x, o.y, bodyD);
   }
   ctx.shadowBlur = 0;
 }
