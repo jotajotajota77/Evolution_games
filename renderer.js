@@ -55,7 +55,6 @@ export function drawFood(world) {
 export function drawOrganisms(world) {
   if (!p) return;
   const ctx = p.drawingContext;
-  ctx.shadowBlur = CONFIG.glowOrganism;
   p.noStroke();
   for (const o of world.organisms) {
     const lin = world.lineages.get(o.lineageId);
@@ -68,7 +67,11 @@ export function drawOrganisms(world) {
     const b = clampByte(base[2] + (d ? d[2] : 0));
     // Energy modulates alpha so weak organisms visibly fade.
     const alpha = 140 + Math.min(115, (o.energy / 100) * 115);
-    ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.9)`;
+    // Firefly breath: the glow halo waxes and wanes on the organism's own
+    // pulse phase. The dot itself is untouched so the position stays crisp.
+    const pulse = 0.55 + 0.45 * Math.sin(o.pulsePhase || 0);
+    ctx.shadowBlur = CONFIG.glowOrganism * pulse;
+    ctx.shadowColor = `rgba(${r}, ${g}, ${b}, ${0.9 * pulse})`;
     p.fill(r, g, b, alpha);
     p.circle(o.x, o.y, CONFIG.organismRadius * 2);
   }

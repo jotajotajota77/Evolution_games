@@ -34,6 +34,11 @@ export class Organism {
     // Set by world helpers for founders; inherited by descendants in spawnChild.
     this.speciesId = null;
     this.budSpeciesId = null;
+
+    // Firefly pulse phase — purely cosmetic. Every organism always pulses;
+    // the 5th NN output controls only the frequency. Randomised at birth so
+    // a synchronised crowd doesn't blink in unison.
+    this.pulsePhase = Math.random() * Math.PI * 2;
   }
 
   update(dtSec, world) {
@@ -43,18 +48,25 @@ export class Organism {
     // 1. Sense
     computeSensors(this, world, this.sensorBuffer);
 
-    // 2. Think — four raw outputs, then per-output activations:
+    // 2. Think — five raw outputs, then per-output activations:
     //    out[0] → tanh → turn intent  ∈ [-1, 1]
     //    out[1] → sigmoid → desired speed ∈ [0, 1]
     //    out[2] → sigmoid → reproduce intent ∈ [0, 1]
     //    out[3] → sigmoid → poison emit intent ∈ [0, 1]
+    //    out[4] → sigmoid → firefly pulse rate ∈ [0, 1] (cosmetic only)
     const out = this.brain.forward(this.sensorBuffer);
     const turn = Math.tanh(out[0]);
     const desiredSpeed = sigmoid(out[1]);
     const reproduceIntent = sigmoid(out[2]);
-    // out[3] may be undefined on legacy brains that never got migrated;
-    // defensive check just in case.
+    // out[3] / out[4] may be undefined on legacy brains that never got
+    // migrated; defensive checks just in case.
     const poisonIntent = out.length >= 4 ? sigmoid(out[3]) : 0;
+    const pulseRate = out.length >= 5 ? sigmoid(out[4]) : 0.5;
+
+    // Advance the firefly pulse phase. Purely cosmetic — no survival impact.
+    const pulseFreq = CONFIG.pulseMinFreq
+      + (CONFIG.pulseMaxFreq - CONFIG.pulseMinFreq) * pulseRate;
+    this.pulsePhase += pulseFreq * Math.PI * 2 * dtSec;
 
     // 3. Apply motion. Constants are calibrated for 60fps and rescaled by dt
     //    so behaviour stays consistent at higher speed multipliers.

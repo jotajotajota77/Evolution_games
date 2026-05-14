@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.47',
+  version: 'v1.48',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -75,7 +75,7 @@ export const CONFIG = {
   // load — vision weights for the first 8 rays carry over to the same
   // slots, the 4 new ray slots and any new output neurons start at small
   // random values.
-  nnArchitecture: [46, 20, 14, 4],
+  nnArchitecture: [46, 20, 14, 5],
 
   // Sensors / vision — full circle now. 12 rays evenly spaced 30° apart.
   visionRays: 12,
@@ -221,6 +221,14 @@ export const CONFIG = {
   predatorPoisonSlowFactor: 0.18,  // current speed multiplier while poisoned
   poisonColor: [170, 255, 110],    // toxic green (smoke)
   predatorPoisonedColor: [225, 255, 35],  // vivid lime-yellow tint for poisoned predators
+
+  // Firefly pulse — 5th NN output is purely cosmetic. Every organism always
+  // pulses; out[4] (after sigmoid) lerps the pulse frequency between
+  // pulseMinFreq (calm breathing) and pulseMaxFreq (excited buzz). The
+  // pulse modulates the organism's glow halo, not its body, so the dot
+  // itself stays readable.
+  pulseMinFreq: 0.3,                  // Hz at sigmoid(out[4]) = 0
+  pulseMaxFreq: 2.5,                  // Hz at sigmoid(out[4]) = 1
   // Negative initial bias for the poison output. sigmoid(-2.0) ≈ 0.12,
   // just above the noise floor (0.08), so fresh brains emit very weakly
   // and pay a small per-second cost — discoverable in either direction:
