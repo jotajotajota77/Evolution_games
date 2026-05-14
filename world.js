@@ -101,6 +101,10 @@ export class World {
     this.deathsByCause = { starvation: 0, age: 0, predation: 0 };
     this.totalBirths = 0;
     this.maxGenerationSeen = 0;
+    // Rolling per-lineage buffer of the most recently dead organisms.
+    // Used by house persistence to clone the last few deceased instead of
+    // only the very last one. Trimmed in the cull sweep to template count.
+    this.recentDeathsByLin = new Map();
 
     // Day/night state. Recomputed every tick from tickSec so sub-stepping
     // and speed multipliers don't drift. daylight is a smooth 0..1 signal:
@@ -200,12 +204,17 @@ export class World {
     this.poisons.length = 0;
     for (const h of this.houses) h.foodSpawnAccumulator = 0;
     for (const z of this.zones) z.foodSpawnAccumulator = 0;
+    this.recentDeathsByLin.clear();
     this.tickSec = CONFIG.startAtNoon ? CONFIG.dayLengthSec / 2 : 0;
     this._recomputeDayCycle();
     this.foodSpawnAccumulator = 0;
     this.deathsByCause = { starvation: 0, age: 0, predation: 0 };
     this.totalBirths = 0;
     this.maxGenerationSeen = 0;
+    // Rolling per-lineage buffer of the most recently dead organisms.
+    // Used by house persistence to clone the last few deceased instead of
+    // only the very last one. Trimmed in the cull sweep to template count.
+    this.recentDeathsByLin = new Map();
   }
 
   _rebuildPhylo() {
@@ -544,15 +553,15 @@ export class World {
       this.predators = aliveP;
     }
 
-    // Cull dead organisms in a single sweep. Along the way we count alive
-    // organisms per lineage and remember the most recently-dead one per
-    // lineage so the persistence respawn (below) has a template to clone.
+    // Cull dead organisms in a single sweep. Track alive counts per lineage
+    // and append every fresh corpse to the rolling recent-deaths buffer so
+    // the persistence respawn below has a pool of templates to clone.
     let aliveByLin = null;
-    let lastDeadByLin = null;
+    const diedThisTickByLin = new Set();
     if (this.organisms.length) {
       const alive = [];
       aliveByLin = new Map();
-      lastDeadByLin = new Map();
+      const templateCount = CONFIG.housePersistenceTemplateCount;
       for (const o of this.organisms) {
         if (o.alive) {
           alive.push(o);
@@ -561,35 +570,49 @@ export class World {
           if (o.causeOfDeath && this.deathsByCause[o.causeOfDeath] !== undefined) {
             this.deathsByCause[o.causeOfDeath]++;
           }
-          lastDeadByLin.set(o.lineageId, o);
+          // Push into the rolling buffer for this lineage.
+          let recents = this.recentDeathsByLin.get(o.lineageId);
+          if (!recents) {
+            recents = [];
+            this.recentDeathsByLin.set(o.lineageId, recents);
+          }
+          recents.push(o);
+          while (recents.length > templateCount) recents.shift();
+          diedThisTickByLin.add(o.lineageId);
         }
       }
       this.organisms = alive;
     }
 
     // Persistence respawn — for every lineage that just hit zero alive AND
-    // has a house with the persistence toggle on, spawn N clones of the
-    // last organism that died inside the house. They keep the deceased's
-    // brain, colour drift, and species ids (same species, fresh bodies).
-    if (lastDeadByLin && lastDeadByLin.size > 0) {
-      for (const [lineageId, deceased] of lastDeadByLin) {
+    // has a house with the persistence toggle on, clone each of the recent
+    // deaths copiesPerTemplate times into the house. With defaults (5 × 2)
+    // a fully-stocked buffer produces 10 clones; partial buffers produce
+    // fewer. Clones inherit the templates' brains, drift and species ids.
+    if (diedThisTickByLin.size > 0) {
+      for (const lineageId of diedThisTickByLin) {
         if ((aliveByLin.get(lineageId) || 0) > 0) continue;
         const lin = this.lineages.get(lineageId);
         if (!lin || !lin.house) continue;
         if (!lin.house.zone.persistence) continue;
+        const templates = this.recentDeathsByLin.get(lineageId);
+        if (!templates || templates.length === 0) continue;
         const house = lin.house;
-        for (let i = 0; i < CONFIG.housePersistenceCopies; i++) {
-          const pt = sampleInCircle(house.x, house.y, house.radius * 0.9);
-          const clone = new Organism(
-            pt.x, pt.y, lineageId,
-            deceased.brain.clone(),
-            [deceased.colorDrift[0], deceased.colorDrift[1], deceased.colorDrift[2]],
-          );
-          clone.energy = CONFIG.organismStartEnergy;
-          clone.generation = deceased.generation;
-          clone.speciesId = deceased.speciesId;
-          clone.budSpeciesId = deceased.budSpeciesId;
-          this.organisms.push(clone);
+        const perTemplate = CONFIG.housePersistenceCopiesPerTemplate;
+        for (const tmpl of templates) {
+          for (let i = 0; i < perTemplate; i++) {
+            const pt = sampleInCircle(house.x, house.y, house.radius * 0.9);
+            const clone = new Organism(
+              pt.x, pt.y, lineageId,
+              tmpl.brain.clone(),
+              [tmpl.colorDrift[0], tmpl.colorDrift[1], tmpl.colorDrift[2]],
+            );
+            clone.energy = CONFIG.organismStartEnergy;
+            clone.generation = tmpl.generation;
+            clone.speciesId = tmpl.speciesId;
+            clone.budSpeciesId = tmpl.budSpeciesId;
+            this.organisms.push(clone);
+          }
         }
         // Resurrection also resets the gradual-reduction state: density
         // jumps back to its initial baseline and the next-reduction timer
@@ -599,15 +622,16 @@ export class World {
           const days = house.zone.reductionIntervalDays || 30;
           house._nextReductionTickSec = this.tickSec + days * CONFIG.dayLengthSec;
         }
-        // Stock the house with starter pellets — the previous population
-        // ate most of the food before they all died, and the natural
-        // spawn rate alone takes time to refill. Without this the 10
-        // clones materialise into an empty pantry and starve again.
+        // Stock the house with starter pellets so the clones don't
+        // materialise into an empty pantry.
         const refill = CONFIG.housePersistenceFoodRefill;
         for (let i = 0; i < refill && this.food.length < CONFIG.foodMaxCount; i++) {
           const pt = sampleInCircle(house.x, house.y, house.radius * 0.95);
           this.food.push(makeFood(pt.x, pt.y, house.zone.foodEnergy));
         }
+        // Clear the template buffer for this lineage so the next extinction
+        // event has to repopulate it from scratch.
+        templates.length = 0;
       }
     }
 

@@ -1,7 +1,7 @@
 // Global tunables. Phase-specific values are commented; later phases will add more.
 export const CONFIG = {
   // Bump this on every commit. Shown discreetly in the panel footer.
-  version: 'v1.42',
+  version: 'v1.43',
 
   // World
   worldPadding: 0,                  // canvas fills the stage; world == canvas size
@@ -156,10 +156,12 @@ export const CONFIG = {
   // global magnitude only.
   houseGradualReductionAmount: 0.1,
 
-  // Persistence (per house, when its zone.persistence is on). Number of
-  // clones of the last-to-die organism that spawn inside the house when
-  // its lineage hits zero alive members.
-  housePersistenceCopies: 10,
+  // Persistence (per house, when its zone.persistence is on). On respawn
+  // the world picks the most recent N deaths for the lineage (rolling
+  // buffer maintained in world.recentDeathsByLin) and clones each one M
+  // times inside the house. Defaults: 5 templates × 2 copies = 10 clones.
+  housePersistenceTemplateCount: 5,
+  housePersistenceCopiesPerTemplate: 2,
   // Pellets pre-stocked inside the house at the moment of respawn so the
   // clones don't materialise into an empty pantry. Each pellet carries the
   // house's current foodEnergy.
