@@ -4,7 +4,7 @@ import {
   attachP5, rebuildVignette, drawTrailFade,
   drawFood, drawOrganisms, drawHouses, drawZones, drawBarriers, drawPredators,
   drawPoisons, drawOrganismHighlight, drawPlacementPreview,
-  drawVignette, drawNightTint, paintBackground,
+  drawVignette, drawNightTint, paintBackground, clearGlowSpriteCache,
 } from './renderer.js';
 import { createLineage, suggestNextLineageDefaults } from './lineage.js';
 import { House } from './house.js';
@@ -1075,6 +1075,7 @@ function setupBottomBar() {
   popups.world.querySelector('[data-action="reset"]').addEventListener('click', () => {
     state.world.reset();
     resetHistoryBuffers();
+    clearGlowSpriteCache();
     state.world.deathsByCause.starvation = 0;
     state.world.deathsByCause.age = 0;
     state.world.deathsByCause.predation = 0;
@@ -1083,6 +1084,7 @@ function setupBottomBar() {
   popups.world.querySelector('[data-action="clear-all"]').addEventListener('click', () => {
     state.world.clearAll();
     resetHistoryBuffers();
+    clearGlowSpriteCache();
     state.world.deathsByCause.starvation = 0;
     state.world.deathsByCause.age = 0;
     state.world.deathsByCause.predation = 0;

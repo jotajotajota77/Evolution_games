@@ -52,34 +52,71 @@ export function drawFood(world) {
   ctx.shadowBlur = 0;
 }
 
+// Cached soft-radial sprites used to paint organism glow halos. One sprite
+// per lineage base colour — drift is small enough that we don't bother
+// keying off the per-individual tint. Built lazily; cleared on world reset.
+const glowSpriteCache = new Map();
+
+export function clearGlowSpriteCache() {
+  glowSpriteCache.clear();
+}
+
+function getGlowSprite(rgb) {
+  const key = (rgb[0] << 16) | (rgb[1] << 8) | rgb[2];
+  let cnv = glowSpriteCache.get(key);
+  if (cnv) return cnv;
+  const SZ = 128;
+  cnv = document.createElement('canvas');
+  cnv.width = SZ; cnv.height = SZ;
+  const c = cnv.getContext('2d');
+  const grad = c.createRadialGradient(SZ / 2, SZ / 2, 0, SZ / 2, SZ / 2, SZ / 2);
+  // Bright core, long soft tail — feathered edge reads as real luminance,
+  // not a hard bubble.
+  grad.addColorStop(0,    `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.85)`);
+  grad.addColorStop(0.18, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.45)`);
+  grad.addColorStop(0.45, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.16)`);
+  grad.addColorStop(0.75, `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0.04)`);
+  grad.addColorStop(1,    `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, 0)`);
+  c.fillStyle = grad;
+  c.fillRect(0, 0, SZ, SZ);
+  glowSpriteCache.set(key, cnv);
+  return cnv;
+}
+
 export function drawOrganisms(world) {
   if (!p) return;
   const ctx = p.drawingContext;
-  p.noStroke();
   const bodyD = CONFIG.organismRadius * 2;
+
+  // Pass 1: soft glow halos, additively blended so overlapping organisms
+  // brighten each other like real fireflies in the dark.
+  ctx.shadowBlur = 0;
+  const prevComp = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = 'lighter';
   for (const o of world.organisms) {
     const lin = world.lineages.get(o.lineageId);
     const base = lin ? lin.color : [200, 200, 220];
-    // Per-individual drift accumulates across generations — paints a soft
-    // family tree onto the lineage's base hue.
+    const pulse = 0.5 + 0.5 * Math.sin(o.pulsePhase || 0);  // 0..1
+    const half = bodyD * (1.4 + 1.6 * pulse);                 // 1.4..3.0 × body
+    ctx.globalAlpha = 0.35 + 0.55 * pulse;                    // 0.35..0.90
+    const sprite = getGlowSprite(base);
+    ctx.drawImage(sprite, o.x - half, o.y - half, half * 2, half * 2);
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = prevComp;
+
+  // Pass 2: the organism body itself, with its usual steady shadow halo
+  // so a still organism still has presence even at minimum pulse.
+  ctx.shadowBlur = CONFIG.glowOrganism;
+  p.noStroke();
+  for (const o of world.organisms) {
+    const lin = world.lineages.get(o.lineageId);
+    const base = lin ? lin.color : [200, 200, 220];
     const d = o.colorDrift;
     const r = clampByte(base[0] + (d ? d[0] : 0));
     const g = clampByte(base[1] + (d ? d[1] : 0));
     const b = clampByte(base[2] + (d ? d[2] : 0));
-    // Firefly breath. pulse ∈ [0, 1] — 0 at dim, 1 at peak. Drawn as an
-    // explicit soft halo behind the body so the rhythm is unmistakable
-    // even on low-pixel-density displays where shadowBlur reads as flat.
-    const pulse = 0.5 + 0.5 * Math.sin(o.pulsePhase || 0);
-    const haloR = bodyD * (1.6 + 1.4 * pulse);    // 1.6..3.0 × body diameter
-    const haloA = 30 + 70 * pulse;                 // 30..100 of 255
-    ctx.shadowBlur = 0;
-    p.fill(r, g, b, haloA);
-    p.circle(o.x, o.y, haloR);
-
-    // Energy modulates alpha so weak organisms visibly fade.
     const alpha = 140 + Math.min(115, (o.energy / 100) * 115);
-    // The dot itself keeps the steady shadowBlur glow it always had.
-    ctx.shadowBlur = CONFIG.glowOrganism;
     ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.9)`;
     p.fill(r, g, b, alpha);
     p.circle(o.x, o.y, bodyD);
